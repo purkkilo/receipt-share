@@ -10,43 +10,54 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const [image, setImage] = useState<string | null>(null);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<any>([]);
   const [total, setTotal] = useState<number | null>(null);
   const [totalToValidate, setTotalToValidate] = useState<number | null>(null);
+
   const pickImage = async () => {
     setData(null);
+    let products: { name: string; price: number }[] = [];
     // No permissions request is necessary for launching the image library
-    let result = await ImagePicker.launchImageLibraryAsync({
+    await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images", "videos"],
       //allowsEditing: true,
       //aspect: [4, 3],
       quality: 1,
+    }).then((result) => {
+      setImage(result?.assets?.[0]?.uri || null);
+      readProducts(result?.assets?.[0]?.uri || "");
+    });
+  };
+
+  const readProducts = async (imageUri: string) => {
+    if (!imageUri) {
+      return;
+    }
+    const imageResult = await MlkitOcr.detectFromUri(imageUri);
+    const products = extractProducts(imageResult);
+
+    products.forEach((element) => {
+      console.log(element.name, element.price);
     });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      const imageResult = await MlkitOcr.detectFromUri(result.assets[0].uri);
-      imageResult.sort(
-        (a, b) =>
-          a.bounding.top - b.bounding.top || a.bounding.left - b.bounding.left
-      );
-      const products = extractProducts(imageResult);
-
+    if (products.length) {
+      // Find index of the product with name containing "YHTEENSÄ"
       const tIndex = products.findIndex((p) =>
         p.name.toUpperCase().includes("YHTEENSÄ")
       );
-
+      // If found, set total and remove that product from the list
       if (tIndex >= 0) {
         setTotal(products[tIndex].price);
         products.splice(tIndex, 1);
       }
-
+      let test = 0;
+      products.forEach((element) => {
+        test += element.price;
+      });
+      console.log("test", test);
       setTotalToValidate(
         products.reduce((sum, p) => {
-          if (p.price) {
-            return sum + p.price;
-          }
-          return sum;
+          return sum + p.price;
         }, 0)
       );
 
@@ -54,6 +65,12 @@ export default function HomeScreen() {
     }
   };
 
+  const readAgain = () => {
+    readProducts(image || "");
+  };
+
+  // FIXME: input is not letting input commas or points
+  // TODO: ADD ability to remove individual products
   const onChangeText = (index: number, field: string) => (text: string) => {
     const newData = [...data];
     if (field === "price") {
@@ -61,10 +78,7 @@ export default function HomeScreen() {
       newData[index][field] = isNaN(parsed) ? null : parsed;
       setTotalToValidate(
         newData.reduce((sum, p) => {
-          if (p.price) {
-            return sum + p.price;
-          }
-          return sum;
+          return sum + p.price;
         }, 0)
       );
     } else {
@@ -72,6 +86,13 @@ export default function HomeScreen() {
     }
     setData(newData);
   };
+
+  function removeData(): void {
+    setImage(null);
+    setData([]);
+    setTotal(null);
+    setTotalToValidate(null);
+  }
 
   return (
     <SafeAreaView
@@ -85,47 +106,79 @@ export default function HomeScreen() {
             contentFit="contain"
           />
         )}
-        <Button title="Pick an image from camera roll" onPress={pickImage} />
+        {image ? (
+          <ThemedView
+            style={{
+              marginBottom: 10,
+              paddingRight: 20,
+              paddingLeft: 20,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              width: "100%",
+            }}
+          >
+            <Button title="Lue uudelleen" onPress={readAgain} />
+            <Button title="Pyyhi tiedot" color="red" onPress={removeData} />
+          </ThemedView>
+        ) : (
+          <ThemedView style={{ marginBottom: 20 }}>
+            <Button title="Valitse kuva kuitista" onPress={pickImage} />
+          </ThemedView>
+        )}
+        <ThemedText style={{ fontSize: 20, fontWeight: "bold" }}>
+          Kuitti
+        </ThemedText>
+        <ThemedView
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            width: "88%",
+          }}
+        >
+          <ThemedText style={{ fontSize: 18 }}>Nimi</ThemedText>
+          <ThemedText style={{ fontSize: 18 }}>Hinta</ThemedText>
+        </ThemedView>
         <FlatList
+          style={{ width: "100%" }}
           data={data}
           keyExtractor={(_, index) => index.toString()}
           renderItem={({ item }) => (
             <ThemedView style={styles.stepContainer}>
-              <ThemedText>
-                {item.name} - {item.price}€
-              </ThemedText>
               <TextInput
                 style={styles.input}
-                onChangeText={onChangeText(item.index, "name")}
-                value={item.name || ""}
-              />
-
+                placeholder="Tuotteen nimi"
+                value={item.name}
+                onChangeText={onChangeText(data.indexOf(item), "name")}
+              ></TextInput>
               <TextInput
                 style={styles.input}
-                onChangeText={onChangeText(item.index, "price")}
-                value={item.price || "0"}
-              />
-            </ThemedView>
-          )}
-          ListHeaderComponent={() => (
-            <ThemedView style={styles.titleContainer}>
-              <ThemedText style={{ fontSize: 20, fontWeight: "bold" }}>
-                Kuitin tuotteet
-              </ThemedText>
+                placeholder="Hinta"
+                keyboardType="numeric"
+                value={
+                  item.price ? item.price.toString().replace(".", ",") : ""
+                }
+                onChangeText={onChangeText(data.indexOf(item), "price")}
+              ></TextInput>
             </ThemedView>
           )}
           ListEmptyComponent={() => (
             <ThemedText>Tuotteita ei luettu vielä</ThemedText>
           )}
           ListFooterComponent={() => (
-            <ThemedView style={{ marginTop: 5 }}>
-              <ThemedText>Yhteensä: {total ? total : 0}€</ThemedText>
-              <ThemedText>
-                Laskettu: {totalToValidate ? totalToValidate : 0}€
-              </ThemedText>
-            </ThemedView>
+            <>
+              <Button
+                title="Lisää tuote"
+                color="green"
+                onPress={() => setData([...data, { name: "", price: null }])}
+              />
+              <ThemedView style={{ alignItems: "center", marginTop: 20 }}>
+                <ThemedText>
+                  Laskettu kuitista: {totalToValidate ? totalToValidate : 0}€
+                </ThemedText>
+              </ThemedView>
+            </>
           )}
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={{ padding: 20 }}
         />
       </ThemedView>
     </SafeAreaView>
@@ -134,13 +187,15 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   titleContainer: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     gap: 8,
   },
   stepContainer: {
     gap: 8,
     marginBottom: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   reactLogo: {
     height: 178,
@@ -153,7 +208,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    width: "95%",
   },
   image: {
     width: 300,
@@ -161,8 +216,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   input: {
-    height: 40,
-    margin: 12,
+    color: "white",
+    backgroundColor: "#333",
     borderWidth: 1,
     padding: 10,
   },
