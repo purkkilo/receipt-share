@@ -177,6 +177,7 @@ export function extractProducts(tokens) {
     "KASSAKUITTI",
     "KPL",
     "OSTOT",
+    "YHTEENSÄ",
   ];
 
   function isBlacklistedLine(s) {

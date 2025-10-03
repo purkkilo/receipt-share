@@ -1,39 +1,77 @@
+import { ThemedButton } from "@/components/themed-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
-  Button,
+  Dimensions,
   FlatList,
   StyleSheet,
   TextInput,
   TouchableOpacity,
 } from "react-native";
 import MlkitOcr from "react-native-mlkit-ocr";
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+  useSharedValue,
+} from "react-native-reanimated";
+import Carousel, {
+  ICarouselInstance,
+  Pagination,
+} from "react-native-reanimated-carousel";
 import { SafeAreaView } from "react-native-safe-area-context";
+const width = Dimensions.get("window").width - 19;
+
+// This is the default configuration
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false, // Reanimated runs in strict mode by default
+});
 
 export default function HomeScreen() {
-  const [image, setImage] = useState<string | null>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [data, setData] = useState<any>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [totalToValidate, setTotalToValidate] = useState<number>(0);
+  const [productTotal, setproductTotal] = useState<number>(0);
   const [showImage, setShowImage] = useState<boolean>(false);
+  const carouselRef = useRef<ICarouselInstance>(null);
+  const progress = useSharedValue<number>(0);
+
+  const onPressPagination = (index: number) => {
+    carouselRef.current?.scrollTo({
+      /**
+       * Calculate the difference between the current index and the target index
+       * to ensure that the carousel scrolls to the nearest index
+       */
+      count: index - progress.value,
+      animated: true,
+    });
+  };
 
   const pickImage = async (reset: boolean) => {
-    if (reset) setData([]);
+    if (reset) {
+      setData([]);
+      setproductTotal(0);
+      setImages([]);
+    }
+    let image = "";
     await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images", "videos"],
       //allowsEditing: true,
-      //aspect: [4, 3],
+      //allowsMultipleSelection: true,
       quality: 1,
-    }).then((result) => {
-      setImage(result?.assets?.[0]?.uri || null);
-      readProducts(result?.assets?.[0]?.uri || "");
-      setShowImage(true);
-    });
+    })
+      .then((result) => {
+        image = result?.assets?.[0]?.uri || "";
+        readProducts(image || "");
+      })
+      .finally(() => {
+        setImages((prev) => [...prev, image]);
+        carouselRef.current?.next();
+      });
   };
 
   const readProducts = async (imageUri: string) => {
@@ -48,26 +86,16 @@ export default function HomeScreen() {
     });
 
     if (products.length) {
-      // Find index of the product with name containing "YHTEENSÄ"
-      const tIndex = products.findIndex((p) =>
-        p.name.toUpperCase().includes("YHTEENSÄ")
-      );
-      // If found, set total and remove that product from the list
-      if (tIndex >= 0) {
-        setTotal(products[tIndex].price);
-        products.splice(tIndex, 1);
-      }
-
       let total = products.reduce((sum, p) => {
-        return sum + p.price;
+        return sum + (p.price ?? 0);
       }, 0);
-      if (totalToValidate > 0) {
-        total += totalToValidate;
+      // Add to existing total if there are already products
+      if (productTotal > 0) {
+        total += productTotal;
       }
 
-      setTotalToValidate(total);
+      setproductTotal(total);
       setData((prev: []) => [...(prev || []), ...products]);
-      console.log(products[0]);
     }
   };
 
@@ -75,38 +103,59 @@ export default function HomeScreen() {
   // TODO: ADD ability to remove individual products
   const onChangeText = (index: number, field: string) => (text: string) => {
     const newData = [...data];
-    if (field === "price") {
-      const parsed = parseFloat(text.replace(",", "."));
-      newData[index][field] = isNaN(parsed) ? null : parsed;
-      setTotalToValidate(
-        newData.reduce((sum, p) => {
-          return sum + p.price;
-        }, 0)
-      );
-    } else {
-      newData[index][field] = text;
+    console.log(text);
+    try {
+      if (!newData[index]) {
+        console.warn(`Data at index ${index} is undefined`);
+        return;
+      }
+      if (field === "price") {
+        if (text.slice(-1) === ",") {
+          // If input ends with a comma, store the raw string for now.
+          newData[index][field] = text;
+        } else {
+          // Normalize input: remove thousands separators and unify decimal separator
+          const normalized = text
+            .replace(/\./g, "") // Remove all periods (assume as thousands separator)
+            .replace(/,/g, "."); // Replace comma with period (as decimal separator)
+          const parsed = parseFloat(normalized);
+          newData[index][field] = isNaN(parsed) ? null : parsed;
+          // Recalculate total price
+          setproductTotal(
+            newData.reduce(
+              (sum, p) => sum + (typeof p.price === "number" ? p.price : 0),
+              0
+            )
+          );
+        }
+      } else {
+        // Just set the text for name field
+        newData[index][field] = text;
+      }
+      setData(newData);
+    } catch (error) {
+      console.log("Error updating text", error);
     }
-    setData(newData);
   };
 
   function removeData(): void {
-    setImage(null);
     setData([]);
-    setTotal(null);
-    setTotalToValidate(0);
+    setproductTotal(0);
+    setImages([]);
   }
 
   // FIXME: This is not working properly
   const removeAtIndex = (index: number) => {
-    const newData = [...data];
-    const removed = newData.splice(index, 1);
-    console.log("removed", removed);
-    setData(newData);
-    setTotalToValidate(
-      newData.reduce((sum, p) => {
-        return sum + p.price;
-      }, 0)
-    );
+    setData((prev: any) => {
+      const newData = [...(prev || [])];
+      newData.splice(index, 1);
+      setproductTotal(
+        newData.reduce((sum, p) => {
+          return sum + (p.price ?? 0);
+        }, 0)
+      );
+      return newData;
+    });
   };
 
   const renderItem = useCallback(
@@ -122,20 +171,29 @@ export default function HomeScreen() {
           style={styles.input}
           placeholder="Tuotteen nimi"
           value={item.name}
-          onChangeText={onChangeText(data.indexOf(item), "name")}
+          onChangeText={onChangeText(index, "name")}
         ></TextInput>
         <TextInput
           style={[styles.input, styles.priceInput]}
           placeholder="Hinta"
-          keyboardType="numeric"
+          keyboardType="decimal-pad"
+          inputMode="decimal"
           value={item.price ? item.price.toString().replace(".", ",") : ""}
-          onChangeText={onChangeText(data.indexOf(item), "price")}
+          onChangeText={(text) => {
+            // Allow only numbers, commas, and periods
+            const filtered = text.replace(/[^0-9.,]/g, "");
+            onChangeText(index, "price")(filtered);
+          }}
         ></TextInput>
         <TouchableOpacity
           onPress={() => removeAtIndex(index)}
           style={{ padding: 10 }}
         >
-          <MaterialIcons name="delete" size={24} color="red" />
+          <MaterialIcons
+            name="delete"
+            size={24}
+            color={"rgba(138, 28, 28, 1)"}
+          />
         </TouchableOpacity>
       </ThemedView>
     ),
@@ -146,20 +204,65 @@ export default function HomeScreen() {
     <SafeAreaView
       style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
     >
-      <ThemedView style={styles.container}>
-        {showImage && image ? (
-          <Image
-            source={{ uri: image }}
-            style={styles.image}
-            contentFit="contain"
-          />
-        ) : (
-          <ThemedText>
-            {showImage ? "Kuittia ei valittuna" : "Kuva piilotettu"}
-          </ThemedText>
-        )}
+      <ThemedView style={styles.titleContainer}>
+        {showImage && images.length ? (
+          <ThemedView>
+            <Carousel
+              ref={carouselRef}
+              width={width}
+              height={width}
+              data={images}
+              onProgressChange={progress}
+              renderItem={({ index }) => (
+                <ThemedView
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    justifyContent: "center",
+                    borderColor: "#888",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <ThemedText
+                    style={{
+                      position: "absolute",
+                      top: 10,
+                      left: 10,
+                      zIndex: 1,
+                      fontSize: 16,
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {index + 1} / {images.length}
+                  </ThemedText>
+                  <Image
+                    source={{ uri: images[index] }}
+                    style={styles.image}
+                    contentFit="contain"
+                  />
+                </ThemedView>
+              )}
+            />
 
-        {image ? (
+            <Pagination.Basic
+              progress={progress}
+              data={images}
+              dotStyle={{
+                backgroundColor: "#fff",
+                borderRadius: 50,
+              }}
+              activeDotStyle={{
+                backgroundColor: "#888",
+              }}
+              containerStyle={{ gap: 5, marginTop: 10 }}
+              onPress={onPressPagination}
+            />
+          </ThemedView>
+        ) : null}
+      </ThemedView>
+      <ThemedView style={styles.container}>
+        {images.length ? (
           <ThemedView
             style={{
               marginBottom: 10,
@@ -170,42 +273,58 @@ export default function HomeScreen() {
               width: "100%",
             }}
           >
-            <Button
-              title="Lue lisää"
+            <ThemedButton
+              color={"#4a8f53ff"}
+              text="Lue uusi"
               onPress={() => {
                 pickImage(false);
               }}
             />
-            <Button
-              title={showImage ? "Piilota kuva" : "Näytä kuva"}
+            <ThemedButton
+              color={"#888"}
+              text={showImage ? "Piilota kuva(t)" : "Näytä kuva(t)"}
               onPress={() => {
                 setShowImage(!showImage);
               }}
             />
-            <Button title="Pyyhi tiedot" color="red" onPress={removeData} />
-          </ThemedView>
-        ) : (
-          <ThemedView style={{ marginBottom: 20 }}>
-            <Button
-              title="Valitse kuva kuitista"
-              onPress={() => {
-                pickImage(true);
-              }}
+            <ThemedButton
+              color={"rgba(138, 28, 28, 1)"}
+              text="Nollaa"
+              onPress={removeData}
             />
           </ThemedView>
+        ) : (
+          <ThemedButton
+            color={"#4a8f53ff"}
+            text="Valitse kuva kuitista"
+            style={{ marginBottom: 20 }}
+            onPress={() => {
+              pickImage(true);
+            }}
+          />
         )}
-        <ThemedText style={{ fontSize: 20, fontWeight: "bold" }}>
+        <ThemedText style={{ fontSize: 20, fontWeight: "bold", margin: 10 }}>
           Kuitti
         </ThemedText>
         <ThemedView
           style={{
             flexDirection: "row",
-            justifyContent: "space-between",
-            width: "88%",
+            justifyContent: "center",
+            // Center the texts so that they are
+            // aligned in the middle of their columns
+            alignItems: "center",
+            width: "100%",
+            paddingBottom: 5,
+            borderBottomWidth: 1,
+            borderBottomColor: "#888",
           }}
         >
-          <ThemedText style={{ fontSize: 18 }}>Nimi</ThemedText>
-          <ThemedText style={{ fontSize: 18 }}>Hinta</ThemedText>
+          <ThemedText style={{ fontSize: 18, width: "60%", left: -17 }}>
+            Nimi
+          </ThemedText>
+          <ThemedText style={{ fontSize: 18, width: "20%", left: -25 }}>
+            Hinta
+          </ThemedText>
         </ThemedView>
         <FlatList
           style={{ width: "100%" }}
@@ -222,17 +341,21 @@ export default function HomeScreen() {
           initialNumToRender={10}
           windowSize={21}
           ListEmptyComponent={() => (
-            <ThemedText>Tuotteita ei luettu vielä</ThemedText>
+            <ThemedText style={{ alignSelf: "center", marginBottom: 20 }}>
+              Tuotteita ei luettu vielä
+            </ThemedText>
           )}
           ListFooterComponent={() => (
             <>
-              <Button
-                title="Lisää tuote"
-                color="green"
+              <ThemedButton
+                color={"#4a8f53ff"}
+                text="Lisää tuote"
+                style={{ marginBottom: 20 }}
                 onPress={() => setData([...data, { name: "", price: null }])}
               />
+
               <ThemedView style={{ alignItems: "center", marginTop: 20 }}>
-                <ThemedText>Laskettu kuitista: {totalToValidate}€</ThemedText>
+                <ThemedText>Laskettu kuitista: {productTotal}€</ThemedText>
               </ThemedView>
             </>
           )}
@@ -267,20 +390,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "95%",
+    paddingTop: 20,
   },
   image: {
     width: 300,
     height: 300,
-    marginTop: 16,
+    alignSelf: "center",
   },
   input: {
     color: "white",
-    backgroundColor: "#333",
+    backgroundColor: "#333333ff",
     borderWidth: 1,
-    padding: 10,
-    width: "50%",
+    padding: 5,
+    width: "65%",
+    borderRadius: 5,
+    borderColor: "#555",
+    fontSize: 14,
+    height: 40,
   },
   priceInput: {
-    width: "30%",
+    width: "20%",
   },
 });
