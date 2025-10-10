@@ -3,6 +3,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import React, { useCallback, useRef, useState } from "react";
@@ -95,15 +96,61 @@ export default function HomeScreen() {
       }
 
       setproductTotal(total);
-      setData((prev: []) => [...(prev || []), ...products]);
+      setData((prev: any) => {
+        console.log("Previous data:", prev);
+        const newData = [...(prev || []), ...products];
+        console.log("New data:", newData);
+        return newData;
+      });
     }
   };
 
-  // FIXME: input is not letting input commas or points
-  // TODO: ADD ability to remove individual products
+  //TODO: Hook the save to a button and load receipts at app start
+  const saveReceipt = async () => {
+    try {
+      const id = Date.now();
+      // Create a receipt object that includes current data, total, images, and a timestamp
+      const receipt = {
+        id,
+        data,
+        productTotal,
+        images,
+        timestamp: id,
+      };
+      // Store each receipt under its own unique key
+      // If receipt already exists, it will be overwritten
+      // Key format: @receipt_<timestamp>
+      const receiptKey = `@receipt_${receipt.id}`;
+      // Check if receipt in storage
+      // TODO:
+      await AsyncStorage.setItem(receiptKey, JSON.stringify(receipt));
+      console.log("Receipt saved successfully under", receiptKey);
+    } catch (error) {
+      console.error("Error saving receipt:", error);
+    }
+  };
+
+  const loadReceipts = async () => {
+    try {
+      // Get all keys and filter for keys that represent individual receipts
+      const allKeys = await AsyncStorage.getAllKeys();
+      const receiptKeys = allKeys.filter((key) => key.startsWith("@receipt_"));
+      // Load all receipts at once
+      const receiptsRaw = await AsyncStorage.multiGet(receiptKeys);
+      const receipts = receiptsRaw
+        .map(([key, value]) => (value ? JSON.parse(value) : null))
+        .filter((receipt) => receipt !== null);
+      console.log("Receipts loaded successfully. Total:", receipts.length);
+      // You can now use these receipts to set a state for a list of receipts if needed:
+      // setReceipts(receipts);
+    } catch (error) {
+      console.error("Error loading receipts:", error);
+    }
+  };
+
+  // Handle text input changes for both name and price fields
   const onChangeText = (index: number, field: string) => (text: string) => {
     const newData = [...data];
-    console.log(text);
     try {
       if (!newData[index]) {
         console.warn(`Data at index ${index} is undefined`);
@@ -144,7 +191,6 @@ export default function HomeScreen() {
     setImages([]);
   }
 
-  // FIXME: This is not working properly
   const removeAtIndex = (index: number) => {
     setData((prev: any) => {
       const newData = [...(prev || [])];
@@ -197,7 +243,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </ThemedView>
     ),
-    []
+    [data, onChangeText, removeAtIndex]
   );
 
   return (
@@ -287,6 +333,7 @@ export default function HomeScreen() {
                 setShowImage(!showImage);
               }}
             />
+
             <ThemedButton
               color={"rgba(138, 28, 28, 1)"}
               text="Nollaa"
@@ -294,14 +341,25 @@ export default function HomeScreen() {
             />
           </ThemedView>
         ) : (
-          <ThemedButton
-            color={"#4a8f53ff"}
-            text="Valitse kuva kuitista"
-            style={{ marginBottom: 20 }}
-            onPress={() => {
-              pickImage(true);
-            }}
-          />
+          <ThemedView style={{ marginBottom: 20, alignItems: "center" }}>
+            <ThemedText style={{ marginBottom: 5, fontSize: 20 }}>
+              Receipt share
+            </ThemedText>
+            <ThemedText style={{ marginBottom: 10, fontSize: 12 }}>
+              Valitse kuva kuitista, tai syötä tuotteet itse
+            </ThemedText>
+            <ThemedButton
+              color={"#4a8f53ff"}
+              text="Valitse kuva kuitista"
+              style={{ marginBottom: 20 }}
+              onPress={() => {
+                pickImage(true);
+              }}
+            />
+            <ThemedText style={{ fontSize: 12, color: "#888" }}>
+              (tai lataa kuitti muokattavaksi)
+            </ThemedText>
+          </ThemedView>
         )}
         <ThemedText style={{ fontSize: 20, fontWeight: "bold", margin: 10 }}>
           Kuitti
@@ -353,9 +411,14 @@ export default function HomeScreen() {
                 style={{ marginBottom: 20 }}
                 onPress={() => setData([...data, { name: "", price: null }])}
               />
-
+              <ThemedButton
+                color={"#00520bff"}
+                text="Tallenna kuitti"
+                style={{ marginBottom: 20 }}
+                onPress={() => saveReceipt()}
+              />
               <ThemedView style={{ alignItems: "center", marginTop: 20 }}>
-                <ThemedText>Laskettu kuitista: {productTotal}€</ThemedText>
+                <ThemedText>Yhteensä: {productTotal}€</ThemedText>
               </ThemedView>
             </>
           )}
