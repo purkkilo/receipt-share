@@ -1,6 +1,7 @@
 import { StyleSheet } from "react-native";
 
-import { ThemedButton } from "@/components/themed-button";
+import ReceiptList from "@/components/receipt-list";
+import ShareView from "@/components/share-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,6 +13,8 @@ export default function HomeScreen() {
   const [receipts, setReceipts] = useState<any[]>([]);
   const navigation = useNavigation<any>();
   const route = useRoute();
+  const [shareView, setShareView] = useState<boolean>(false);
+  const [receipt, setReceipt] = useState<any>();
 
   const loadReceipts = async () => {
     try {
@@ -45,12 +48,9 @@ export default function HomeScreen() {
     loadReceipts();
   }, [route.params]);
 
-  function editReceipt(receipt: any): void {
-    navigation.navigate("receipt", { receipt: receipt });
-  }
-
   function chooseReceipt(receipt: any): void {
-    console.log("choose:", receipt);
+    setReceipt(receipt);
+    setShareView(true);
   }
 
   return (
@@ -69,102 +69,16 @@ export default function HomeScreen() {
           Valitse kuitti ja jaa kulut ystäviesi kesken
         </ThemedText>
       </ThemedView>
-      <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
-        <ThemedText
-          style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}
-        >
-          Tallennetut kuitit
-        </ThemedText>
-        {receipts.length === 0 ? (
-          <ThemedView
-            style={{
-              alignItems: "center",
-            }}
-          >
-            <ThemedText style={{ fontSize: 14, color: "#888" }}>
-              Ei tallennettuja kuitteja
-            </ThemedText>
-            <ThemedButton
-              text="Siirry luomaan kuitti"
-              style={{ marginTop: 20 }}
-              onPress={() => {
-                navigation.navigate("receipt");
-              }}
-              color="green"
-            ></ThemedButton>
-          </ThemedView>
-        ) : (
-          receipts.map((receipt, index) => (
-            <ThemedView
-              key={index}
-              style={{
-                borderWidth: 1,
-                borderColor: "#ccc",
-                borderRadius: 8,
-                padding: 10,
-                marginBottom: 10,
-                width: "90%",
-              }}
-            >
-              <ThemedView
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  padding: 10,
-                }}
-              >
-                <ThemedText
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "bold",
-                    alignSelf: "center",
-                  }}
-                >
-                  Kuitti {index + 1}
-                </ThemedText>
-                <ThemedText
-                  style={{ fontSize: 14, color: "#666", alignSelf: "center" }}
-                >
-                  {new Date(receipt.timestamp).toLocaleString()}
-                </ThemedText>
-                <ThemedText
-                  style={{
-                    fontSize: 14,
-                    fontWeight: "bold",
-                    textAlign: "center",
-                  }}
-                >
-                  {receipt.productTotal.toFixed(2)}€
-                </ThemedText>
-              </ThemedView>
-              <ThemedButton
-                text="Muokkaa"
-                color="#878a00ff"
-                style={{ marginTop: 10 }}
-                onPress={() => {
-                  editReceipt(receipt);
-                }}
-              ></ThemedButton>
-              <ThemedButton
-                text="Valitse"
-                color="#007aff"
-                style={{ marginTop: 10 }}
-                onPress={() => {
-                  chooseReceipt(receipt);
-                }}
-              ></ThemedButton>
-              <ThemedButton
-                text="Poista"
-                color="#5f0000ff"
-                style={{ marginTop: 10 }}
-                onPress={() => {
-                  deleteReceipt(receipt, index);
-                }}
-              ></ThemedButton>
-            </ThemedView>
-          ))
-        )}
-      </ThemedView>
+      {shareView ? (
+        <ShareView receipt={receipt} setShareView={setShareView}></ShareView>
+      ) : (
+        <ReceiptList
+          receipts={receipts}
+          navigation={navigation}
+          deleteReceipt={deleteReceipt}
+          chooseReceipt={chooseReceipt}
+        ></ReceiptList>
+      )}
     </ThemedView>
   );
 }

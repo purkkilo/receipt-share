@@ -2,6 +2,7 @@ import { ThemedButton } from "@/components/themed-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRoute } from "@react-navigation/native";
@@ -16,6 +17,7 @@ import {
   TextInput,
   TouchableOpacity,
 } from "react-native";
+import { MultiSelect } from "react-native-element-dropdown";
 import MlkitOcr from "react-native-mlkit-ocr";
 import {
   configureReanimatedLogger,
@@ -37,24 +39,102 @@ configureReanimatedLogger({
 
 export default function ReceiptScreen() {
   const [images, setImages] = useState<string[]>([]);
-  const [data, setData] = useState<any>([]);
+  const [products, setProducts] = useState<any>([]);
   const [receipt, setReceipt] = useState<any>(null);
+  const [receiptName, setReceiptName] = useState<string>("");
   const [productTotal, setProductTotal] = useState<number>(0);
   const [showImage, setShowImage] = useState<boolean>(false);
   const carouselRef = useRef<ICarouselInstance>(null);
   const progress = useSharedValue<number>(0);
   const navigation = useNavigation<any>();
   const route = useRoute();
+  const [selectedSharers, setSelectedSharers] = useState<string[]>([]);
+  const [addSharer, setAddSharer] = useState<boolean>(false);
+  const [sharerName, setSharerName] = useState<string>("");
+
+  const [sharers, setSharers] = useState<any[]>([
+    { label: "J", value: "1" },
+    { label: "L", value: "2" },
+    { label: "K", value: "3" },
+  ]);
 
   useEffect(() => {
     if (route.params) {
       const { receipt: receivedReceipt } = route.params as { receipt: any };
       setReceipt(receivedReceipt);
-      setData(receivedReceipt.data);
+      setProducts(receivedReceipt.products);
       setProductTotal(receivedReceipt.productTotal);
       setImages(receivedReceipt.images);
+      setReceiptName(receivedReceipt.name);
+      setSharers(receivedReceipt.sharers);
+      setSelectedSharers(receivedReceipt.sharers);
     }
   }, [route.params]);
+
+  interface SelectedProps {
+    selectedSharers: string[];
+    setSelectedSharers: (selectedSharers: string[]) => void;
+  }
+
+  const MultiSelectComponent = ({
+    selectedSharers,
+    setSelectedSharers,
+  }: SelectedProps) => {
+    const renderItem = (item: { label: string }) => {
+      return (
+        <ThemedView style={styles.item}>
+          <ThemedText style={styles.selectedTextStyle}>{item.label}</ThemedText>
+          <AntDesign
+            style={styles.icon}
+            color="white"
+            name="safety"
+            size={20}
+          />
+        </ThemedView>
+      );
+    };
+
+    return (
+      <ThemedView style={[styles.container, { marginBottom: 20 }]}>
+        <MultiSelect
+          style={styles.dropdown}
+          placeholderStyle={styles.placeholderStyle}
+          selectedTextStyle={styles.selectedTextStyle}
+          inputSearchStyle={styles.inputSearchStyle}
+          iconStyle={styles.iconStyle}
+          data={sharers}
+          labelField="label"
+          valueField="value"
+          placeholder="Valitse jakajat"
+          value={selectedSharers}
+          search
+          searchPlaceholder="Etsi..."
+          onChange={(item) => {
+            setSelectedSharers(item);
+          }}
+          renderLeftIcon={() => (
+            <AntDesign
+              style={styles.icon}
+              color="white"
+              name="safety"
+              size={20}
+            />
+          )}
+          renderItem={renderItem}
+          renderSelectedItem={(item, unSelect) => (
+            <TouchableOpacity onPress={() => unSelect && unSelect(item)}>
+              <ThemedView style={styles.selectedStyle}>
+                <ThemedText style={styles.textSelectedStyle}>
+                  {item.label}
+                </ThemedText>
+                <AntDesign color="red" name="delete" size={17} />
+              </ThemedView>
+            </TouchableOpacity>
+          )}
+        />
+      </ThemedView>
+    );
+  };
 
   const onPressPagination = (index: number) => {
     carouselRef.current?.scrollTo({
@@ -69,7 +149,7 @@ export default function ReceiptScreen() {
 
   const pickImage = async (reset: boolean) => {
     if (reset) {
-      setData([]);
+      setProducts([]);
       setProductTotal(0);
       setImages([]);
     }
@@ -107,7 +187,7 @@ export default function ReceiptScreen() {
       }
 
       setProductTotal(total);
-      setData((prev: any) => [...(prev || []), ...products]);
+      setProducts((prev: any) => [...(prev || []), ...products]);
     }
   };
 
@@ -116,7 +196,9 @@ export default function ReceiptScreen() {
     try {
       // Create a receipt object that includes current data, total, images, and a timestamp
       const tempReceipt = {
-        data,
+        name: receiptName,
+        sharers,
+        products,
         productTotal,
         images,
         timestamp: receipt ? receipt.timestamp : Date.now(),
@@ -140,7 +222,7 @@ export default function ReceiptScreen() {
 
   // Handle text input changes for both name and price fields
   const onChangeText = (index: number, field: string) => (text: string) => {
-    const newData = [...data];
+    const newData = [...products];
     try {
       if (!newData[index]) {
         console.warn(`Data at index ${index} is undefined`);
@@ -169,21 +251,25 @@ export default function ReceiptScreen() {
         // Just set the text for name field
         newData[index][field] = text;
       }
-      setData(newData);
+      setProducts(newData);
     } catch (error) {
       console.log("Error updating text", error);
     }
   };
 
   function removeData(): void {
-    setData([]);
+    setProducts([]);
     setReceipt(null);
     setProductTotal(0);
     setImages([]);
+    setReceiptName("");
+    setSelectedSharers([]);
+    setSharerName("");
+    setAddSharer(false);
   }
 
   const removeAtIndex = (index: number) => {
-    setData((prev: any) => {
+    setProducts((prev: any) => {
       const newData = [...(prev || [])];
       newData.splice(index, 1);
       setProductTotal(
@@ -234,7 +320,7 @@ export default function ReceiptScreen() {
         </TouchableOpacity>
       </ThemedView>
     ),
-    [data, onChangeText, removeAtIndex]
+    [products, onChangeText, removeAtIndex]
   );
 
   return (
@@ -299,7 +385,7 @@ export default function ReceiptScreen() {
         ) : null}
       </ThemedView>
       <ThemedView style={styles.container}>
-        {data.length ? (
+        {products.length ? (
           <ThemedView
             style={{
               marginBottom: 10,
@@ -378,7 +464,7 @@ export default function ReceiptScreen() {
         </ThemedView>
         <FlatList
           style={{ width: "100%" }}
-          data={data}
+          data={products}
           keyExtractor={(_, index) => index.toString()}
           renderItem={renderItem}
           getItemLayout={(_, index) => ({
@@ -401,17 +487,96 @@ export default function ReceiptScreen() {
                 color={"#4a8f53ff"}
                 text="Lisää tuote"
                 style={{ marginBottom: 20 }}
-                onPress={() => setData([...data, { name: "", price: null }])}
+                onPress={() =>
+                  setProducts([...products, { name: "", price: null }])
+                }
               />
-              {data.length ? (
+              {products.length ? (
                 <ThemedView style={{ alignItems: "center" }}>
-                  <ThemedButton
-                    color={"#00520bff"}
-                    text="Tallenna kuitti"
-                    style={{ marginBottom: 20 }}
-                    onPress={saveReceipt}
-                  />
-                  <ThemedText>Yhteensä: {productTotal}€</ThemedText>
+                  <ThemedText style={{ marginBottom: 20 }}>
+                    Yhteensä: {productTotal.toFixed(2)}€
+                  </ThemedText>
+                  <ThemedView
+                    style={{
+                      justifyContent: "center",
+                      // Center the texts so that they are
+                      // aligned in the middle of their columns
+                      alignItems: "center",
+                      width: "100%",
+                      paddingTop: 20,
+                      borderTopWidth: 1,
+                      borderTopColor: "#888",
+                    }}
+                  >
+                    <ThemedText>Kuitin nimi</ThemedText>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Kuitin nimi"
+                      value={receiptName}
+                      onChangeText={(text) => {
+                        setReceiptName(() => text);
+                      }}
+                    ></TextInput>
+                    <ThemedText style={{ marginTop: 10 }}>
+                      Kuitin jakajat
+                    </ThemedText>
+                    {sharers.length ? (
+                      <MultiSelectComponent
+                        selectedSharers={selectedSharers}
+                        setSelectedSharers={setSelectedSharers}
+                      ></MultiSelectComponent>
+                    ) : null}
+                    {addSharer ? (
+                      <ThemedView
+                        style={{
+                          flexDirection: "row",
+                          gap: 10,
+                          marginBottom: 10,
+                        }}
+                      >
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Nimi"
+                          value={sharerName}
+                          onChangeText={setSharerName}
+                        ></TextInput>
+                        <ThemedButton
+                          text="+"
+                          color="green"
+                          onPress={() => {
+                            setSharers((prev: any[]) => {
+                              if (
+                                !prev.some(
+                                  (item: any) => item.label === sharerName
+                                )
+                              ) {
+                                return [
+                                  ...prev,
+                                  { label: sharerName, value: sharerName },
+                                ];
+                              }
+                              return prev;
+                            });
+                            setSharerName("");
+                          }}
+                        />
+                      </ThemedView>
+                    ) : null}
+                    <ThemedButton
+                      color={"#00520bff"}
+                      text={addSharer ? "Piilota" : "Lisää jakajia"}
+                      style={{ marginBottom: 20 }}
+                      onPress={() => {
+                        setAddSharer(!addSharer);
+                      }}
+                    />
+                    <ThemedButton
+                      color={"#00520bff"}
+                      text="Tallenna kuitti"
+                      style={{ marginBottom: 20 }}
+                      onPress={saveReceipt}
+                    />
+                  </ThemedView>
                 </ThemedView>
               ) : null}
             </>
@@ -446,7 +611,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    width: "95%",
+    width: "100%",
     paddingTop: 20,
   },
   image: {
@@ -472,5 +637,70 @@ const styles = StyleSheet.create({
   subtitle: {
     color: "#888",
     fontSize: 12,
+  },
+  dropdown: {
+    width: "100%",
+    height: 50,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#323232",
+    borderColor: "grey",
+    borderWidth: 1,
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  placeholderStyle: {
+    fontSize: 16,
+    color: "white",
+  },
+  selectedTextStyle: {
+    fontSize: 14,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 16,
+    backgroundColor: "#323232",
+    borderColor: "grey",
+    borderWidth: 1,
+  },
+  icon: {
+    marginRight: 5,
+  },
+  item: {
+    padding: 17,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  selectedStyle: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 14,
+    backgroundColor: "#323232",
+    borderWidth: 1,
+    borderColor: "grey",
+    shadowColor: "#000",
+    marginTop: 8,
+    marginRight: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+
+    elevation: 2,
+  },
+  textSelectedStyle: {
+    marginRight: 5,
+    fontSize: 16,
   },
 });
