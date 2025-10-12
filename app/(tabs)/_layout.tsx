@@ -20,18 +20,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Kuitti",
+          title: "Jaa Kulut",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <IconSymbol size={28} name="percent" color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="receipt"
         options={{
-          title: "Jaa kulut",
+          title: "Kuitti",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={28} name="list.bullet" color={color} />
           ),
         }}
       />
