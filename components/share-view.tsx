@@ -14,7 +14,7 @@ export default function ShareView({ receipt, setShareView }: ShareViewProps) {
   useEffect(() => {
     console.log(receipt.sharers);
   });
-
+  // TODO: Sharing functionalities
   return (
     <ThemedView style={{ flex: 1 }}>
       <ThemedButton
@@ -23,12 +23,10 @@ export default function ShareView({ receipt, setShareView }: ShareViewProps) {
         onPress={() => setShareView(false)}
       ></ThemedButton>
       <ThemedView>
-        {receipt.sharers.map((sharer: any, index: number) => (
-          <>
-            <ThemedText key={index}>
-              {index + 1} {sharer.label}
-            </ThemedText>
-          </>
+        {receipt.sharers?.map((sharer: any, index: number) => (
+          <ThemedText key={index}>
+            {index + 1} {sharer.label}
+          </ThemedText>
         ))}
       </ThemedView>
     </ThemedView>

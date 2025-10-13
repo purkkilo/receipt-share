@@ -1,40 +1,37 @@
-import { Tabs } from "expo-router";
 import React from "react";
-
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { Icon, MD3Colors } from "react-native-paper";
+import { createMaterialBottomTabNavigator } from "react-native-paper/react-navigation";
+import HomeScreen from "./index";
+import ReceiptScreen from "./receipt";
+const Tab = createMaterialBottomTabNavigator();
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}
-    >
-      <Tabs.Screen
+    <Tab.Navigator>
+      <Tab.Screen
         name="index"
         options={{
           title: "Jaa Kulut",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="percent" color={color} />
+          tabBarIcon: () => (
+            <Icon source="percent" color={MD3Colors.neutral70} size={20} />
           ),
         }}
+        component={HomeScreen}
       />
-      <Tabs.Screen
+      <Tab.Screen
         name="receipt"
         options={{
           title: "Kuitti",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="list.bullet" color={color} />
+          tabBarIcon: () => (
+            <Icon
+              source="receipt-text-edit"
+              color={MD3Colors.neutral70}
+              size={20}
+            />
           ),
         }}
+        component={ReceiptScreen}
       />
-    </Tabs>
+    </Tab.Navigator>
   );
 }

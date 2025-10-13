@@ -48,15 +48,17 @@ export default function ReceiptScreen() {
   const progress = useSharedValue<number>(0);
   const navigation = useNavigation<any>();
   const route = useRoute();
+  // TODO: Save and fetch sharers to/from storage
+  const [sharers, setSharers] = useState<any[]>([
+    { label: "J", value: 0 },
+    { label: "L", value: 1 },
+    { label: "K", value: 2 },
+  ]);
   const [selectedSharers, setSelectedSharers] = useState<string[]>([]);
   const [addSharer, setAddSharer] = useState<boolean>(false);
   const [sharerName, setSharerName] = useState<string>("");
 
-  const [sharers, setSharers] = useState<any[]>([
-    { label: "J", value: "1" },
-    { label: "L", value: "2" },
-    { label: "K", value: "3" },
-  ]);
+  let tempName = "";
 
   useEffect(() => {
     if (route.params) {
@@ -66,8 +68,11 @@ export default function ReceiptScreen() {
       setProductTotal(receivedReceipt.productTotal);
       setImages(receivedReceipt.images);
       setReceiptName(receivedReceipt.name);
-      setSharers(receivedReceipt.sharers);
-      setSelectedSharers(receivedReceipt.sharers);
+      if (receivedReceipt.sharers) {
+        setSelectedSharers(
+          receivedReceipt.sharers.map((item: any) => item.value)
+        );
+      }
     }
   }, [route.params]);
 
@@ -76,6 +81,7 @@ export default function ReceiptScreen() {
     setSelectedSharers: (selectedSharers: string[]) => void;
   }
 
+  //FIXME: Fix the component closing every select?
   const MultiSelectComponent = ({
     selectedSharers,
     setSelectedSharers,
@@ -194,15 +200,22 @@ export default function ReceiptScreen() {
   //TODO: Hook the save to a button and load receipts at app start
   const saveReceipt = async () => {
     try {
+      let pickedSharers = [];
+      if (selectedSharers.length) {
+        pickedSharers = sharers.filter((i) =>
+          selectedSharers.includes(i.value)
+        );
+      }
       // Create a receipt object that includes current data, total, images, and a timestamp
       const tempReceipt = {
         name: receiptName,
-        sharers,
+        sharers: pickedSharers,
         products,
         productTotal,
         images,
         timestamp: receipt ? receipt.timestamp : Date.now(),
       };
+
       // Store each receipt under its own unique key
       // If receipt already exists, it will be overwritten
       // Key format: @receipt_<timestamp>
@@ -512,9 +525,10 @@ export default function ReceiptScreen() {
                     <TextInput
                       style={styles.input}
                       placeholder="Kuitin nimi"
-                      value={receiptName}
-                      onChangeText={(text) => {
-                        setReceiptName(() => text);
+                      defaultValue={receiptName}
+                      onChangeText={(text) => (tempName = text)}
+                      onEndEditing={() => {
+                        setReceiptName(tempName);
                       }}
                     ></TextInput>
                     <ThemedText style={{ marginTop: 10 }}>
@@ -552,7 +566,7 @@ export default function ReceiptScreen() {
                               ) {
                                 return [
                                   ...prev,
-                                  { label: sharerName, value: sharerName },
+                                  { label: sharerName, value: sharers.length },
                                 ];
                               }
                               return prev;

@@ -1,6 +1,8 @@
-import { StyleSheet } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
 import { ThemedView } from "@/components/themed-view";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import { useState } from "react";
 import { ThemedButton } from "./themed-button";
 import { ThemedText } from "./themed-text";
 
@@ -17,6 +19,9 @@ export default function ReceiptList({
   chooseReceipt,
   deleteReceipt,
 }: ReceiptListProps) {
+  const [showDeleteMessage, setShowDeleteMessage] = useState<boolean>(true);
+  const [showEditMessage, setShowEditMessage] = useState<boolean>(false);
+  const [showChooseMessage, setShowChooseMessage] = useState<boolean>(false);
   return (
     <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
       <ThemedText
@@ -52,14 +57,14 @@ export default function ReceiptList({
               borderRadius: 8,
               padding: 10,
               marginBottom: 10,
-              width: "90%",
             }}
           >
             <ThemedView
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",
-                padding: 10,
+                padding: 5,
+                gap: 20,
               }}
             >
               <ThemedText
@@ -86,30 +91,46 @@ export default function ReceiptList({
                 {receipt.productTotal.toFixed(2)}€
               </ThemedText>
             </ThemedView>
-            <ThemedButton
-              text="Muokkaa"
-              color="#878a00ff"
-              style={{ marginTop: 10 }}
-              onPress={() => {
-                navigation.navigate("receipt", { receipt: receipt });
-              }}
-            ></ThemedButton>
-            <ThemedButton
-              text="Valitse"
-              color="#007aff"
-              style={{ marginTop: 10 }}
-              onPress={() => {
-                chooseReceipt(receipt);
-              }}
-            ></ThemedButton>
-            <ThemedButton
-              text="Poista"
-              color="#5f0000ff"
-              style={{ marginTop: 10 }}
-              onPress={() => {
-                deleteReceipt(receipt, index);
-              }}
-            ></ThemedButton>
+
+            <ThemedView style={styles.buttonRow}>
+              <Pressable
+                style={styles.button}
+                onHoverIn={() => {
+                  setShowDeleteMessage(false);
+                }}
+                onHoverOut={() => {
+                  setShowDeleteMessage(true);
+                }}
+              >
+                <AntDesign name="delete" color="#5f0000ff" size={20} />
+                <ThemedText style={styles.tooltip}>delete</ThemedText>
+              </Pressable>
+              <Pressable
+                style={styles.button}
+                onPress={() => {
+                  deleteReceipt(receipt, index);
+                }}
+              >
+                <AntDesign
+                  name="edit"
+                  color="#878a00ff"
+                  size={20}
+                  onPress={() => {
+                    navigation.navigate("receipt", { receipt: receipt });
+                  }}
+                />
+                <ThemedText style={styles.tooltip}>edit</ThemedText>
+              </Pressable>
+              <Pressable
+                style={styles.button}
+                onPress={() => {
+                  chooseReceipt(receipt);
+                }}
+              >
+                <AntDesign name="enter" color="#007aff" size={20} />
+                <ThemedText style={styles.tooltip}>choose</ThemedText>
+              </Pressable>
+            </ThemedView>
           </ThemedView>
         ))
       )}
@@ -117,4 +138,19 @@ export default function ReceiptList({
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignContent: "center",
+  },
+  button: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tooltip: {
+    borderRadius: 8,
+    padding: 5,
+    color: "grey",
+  },
+});
