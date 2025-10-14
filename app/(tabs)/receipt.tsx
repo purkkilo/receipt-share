@@ -14,11 +14,11 @@ import {
   Dimensions,
   FlatList,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
 } from "react-native";
 import { MultiSelect } from "react-native-element-dropdown";
 import MlkitOcr from "react-native-mlkit-ocr";
+import { Button, MD3Colors, TextInput } from "react-native-paper";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
@@ -116,6 +116,9 @@ export default function ReceiptScreen() {
           search
           searchPlaceholder="Etsi..."
           onChange={(item) => {
+            setSelectedSharers(item);
+          }}
+          onConfirmSelectItem={(item) => {
             setSelectedSharers(item);
           }}
           renderLeftIcon={() => (
@@ -305,13 +308,13 @@ export default function ReceiptScreen() {
       <ThemedView style={styles.stepContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Tuotteen nimi"
+          mode="outlined"
           value={item.name}
           onChangeText={onChangeText(index, "name")}
         ></TextInput>
         <TextInput
           style={[styles.input, styles.priceInput]}
-          placeholder="Hinta"
+          mode="outlined"
           keyboardType="decimal-pad"
           inputMode="decimal"
           value={item.price ? item.price.toString().replace(".", ",") : ""}
@@ -409,44 +412,56 @@ export default function ReceiptScreen() {
               width: "100%",
             }}
           >
-            <ThemedButton
-              color={"#4a8f53ff"}
-              text="Lue uusi"
+            <Button
+              compact
+              mode="contained"
+              icon="receipt-text-plus-outline"
               onPress={() => {
                 pickImage(false);
               }}
-            />
+            >
+              Lue uusi
+            </Button>
             {images.length ? (
-              <ThemedButton
-                color={"#888"}
-                text={showImage ? "Piilota kuva(t)" : "Näytä kuva(t)"}
+              <Button
+                compact
+                mode="contained"
+                icon={showImage ? "image-minus" : "image-check"}
                 onPress={() => {
                   setShowImage(!showImage);
                 }}
-              />
+              >
+                {showImage ? "Piilota kuva(t)" : "Näytä kuva(t)"}
+              </Button>
             ) : null}
-            <ThemedButton
-              color={"rgba(138, 28, 28, 1)"}
-              text="Nollaa"
+            <Button
+              compact
+              icon="restart"
+              mode="contained"
+              textColor={MD3Colors.error30}
               onPress={removeData}
-            />
+            >
+              Nollaa
+            </Button>
           </ThemedView>
         ) : (
           <ThemedView style={{ marginBottom: 20, alignItems: "center" }}>
-            <ThemedText style={{ marginBottom: 5, fontSize: 20 }}>
+            <ThemedText type="title" style={{ marginBottom: 5 }}>
               Receipt share
             </ThemedText>
             <ThemedText style={[styles.subtitle, { margin: 10 }]}>
               Valitse kuva kuitista
             </ThemedText>
-            <ThemedButton
-              color={"#4a8f53ff"}
-              text="Valitse"
+            <Button
+              icon="image"
+              mode="contained"
               style={{ marginBottom: 20 }}
               onPress={() => {
                 pickImage(true);
               }}
-            />
+            >
+              Valitse
+            </Button>
             <ThemedText style={styles.subtitle}>
               Tai syötä tuotteet itse alle
             </ThemedText>
@@ -468,10 +483,10 @@ export default function ReceiptScreen() {
             borderBottomColor: "#888",
           }}
         >
-          <ThemedText style={{ fontSize: 18, width: "60%", left: -17 }}>
+          <ThemedText style={{ fontSize: 18, width: "60%", left: -18 }}>
             Nimi
           </ThemedText>
-          <ThemedText style={{ fontSize: 18, width: "20%", left: -25 }}>
+          <ThemedText style={{ fontSize: 18, width: "20%", left: -18 }}>
             Hinta
           </ThemedText>
         </ThemedView>
@@ -491,19 +506,21 @@ export default function ReceiptScreen() {
           windowSize={21}
           ListEmptyComponent={() => (
             <ThemedText style={{ alignSelf: "center", marginBottom: 20 }}>
-              Tuotteita ei luettu vielä
+              Kuitti on vielä tyhjä
             </ThemedText>
           )}
           ListFooterComponent={() => (
             <>
-              <ThemedButton
-                color={"#4a8f53ff"}
-                text="Lisää tuote"
+              <Button
+                icon="cart-plus"
+                mode="contained"
                 style={{ marginBottom: 20 }}
                 onPress={() =>
                   setProducts([...products, { name: "", price: null }])
                 }
-              />
+              >
+                Lisää tuote
+              </Button>
               {products.length ? (
                 <ThemedView style={{ alignItems: "center" }}>
                   <ThemedText style={{ marginBottom: 20 }}>
@@ -521,10 +538,10 @@ export default function ReceiptScreen() {
                       borderTopColor: "#888",
                     }}
                   >
-                    <ThemedText>Kuitin nimi</ThemedText>
                     <TextInput
                       style={styles.input}
-                      placeholder="Kuitin nimi"
+                      mode="outlined"
+                      label="Kuitin nimi"
                       defaultValue={receiptName}
                       onChangeText={(text) => (tempName = text)}
                       onEndEditing={() => {
@@ -576,20 +593,33 @@ export default function ReceiptScreen() {
                         />
                       </ThemedView>
                     ) : null}
-                    <ThemedButton
-                      color={"#00520bff"}
-                      text={addSharer ? "Piilota" : "Lisää jakajia"}
+                    <Button
+                      mode="contained"
+                      icon="account-plus"
                       style={{ marginBottom: 20 }}
                       onPress={() => {
                         setAddSharer(!addSharer);
                       }}
-                    />
-                    <ThemedButton
-                      color={"#00520bff"}
-                      text="Tallenna kuitti"
+                    >
+                      {addSharer ? "Piilota" : "Lisää jakajia"}
+                    </Button>
+                    <ThemedView
+                      style={{
+                        borderWidth: 1,
+                        borderColor: "rgba(0,0,0,0)",
+                        borderBottomColor: "#888",
+                        width: "100%",
+                        marginBottom: 20,
+                      }}
+                    ></ThemedView>
+                    <Button
+                      mode="contained"
+                      icon="content-save"
                       style={{ marginBottom: 20 }}
                       onPress={saveReceipt}
-                    />
+                    >
+                      Tallenna kuitti
+                    </Button>
                   </ThemedView>
                 </ThemedView>
               ) : null}
@@ -635,9 +665,6 @@ const styles = StyleSheet.create({
   },
   input: {
     color: "white",
-    backgroundColor: "#333333ff",
-    borderWidth: 1,
-    padding: 5,
     width: "65%",
     borderRadius: 5,
     borderColor: "#555",

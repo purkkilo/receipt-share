@@ -1,9 +1,8 @@
-import { Pressable, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 
 import { ThemedView } from "@/components/themed-view";
-import AntDesign from "@expo/vector-icons/AntDesign";
 import { useState } from "react";
-import { ThemedButton } from "./themed-button";
+import { Button, MD3Colors, Modal, Portal } from "react-native-paper";
 import { ThemedText } from "./themed-text";
 
 interface ReceiptListProps {
@@ -19,11 +18,70 @@ export default function ReceiptList({
   chooseReceipt,
   deleteReceipt,
 }: ReceiptListProps) {
-  const [showDeleteMessage, setShowDeleteMessage] = useState<boolean>(true);
-  const [showEditMessage, setShowEditMessage] = useState<boolean>(false);
-  const [showChooseMessage, setShowChooseMessage] = useState<boolean>(false);
+  const [showDeleteMessage, setShowDeleteMessage] = useState<boolean>(false);
+  const showModal = () => setShowDeleteMessage(true);
+  const hideModal = () => setShowDeleteMessage(false);
+  const [toDelete, setToDelete] = useState<any>(null);
+
   return (
     <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
+      <Portal>
+        <Modal
+          visible={showDeleteMessage}
+          contentContainerStyle={styles.confirmBox}
+          dismissableBackButton
+        >
+          <ThemedView
+            style={{
+              padding: 30,
+              gap: 20,
+              backgroundColor: MD3Colors.secondary10,
+              alignItems: "center",
+            }}
+          >
+            <ThemedText type="defaultSemiBold">
+              Oletko varma että haluat poistaa kuitin?
+            </ThemedText>
+            {toDelete ? (
+              <>
+                <ThemedText type="title">{toDelete?.receipt.name}</ThemedText>
+                <ThemedText type="subtitle">
+                  {new Date(toDelete.receipt.timestamp).toLocaleString()}
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <ThemedText>Poistetaan...</ThemedText>
+              </>
+            )}
+
+            <ThemedView
+              style={{
+                flexDirection: "row",
+                gap: 100,
+              }}
+            >
+              <Button icon="cancel" mode="contained" onPress={hideModal}>
+                Peruuta
+              </Button>
+              <Button
+                icon="delete"
+                mode="contained"
+                textColor={MD3Colors.error30}
+                onPress={() => {
+                  if (toDelete) {
+                    hideModal();
+                    deleteReceipt(toDelete.receipt, toDelete.index);
+                    setToDelete(null);
+                  }
+                }}
+              >
+                Poista
+              </Button>
+            </ThemedView>
+          </ThemedView>
+        </Modal>
+      </Portal>
       <ThemedText
         style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}
       >
@@ -38,14 +96,16 @@ export default function ReceiptList({
           <ThemedText style={{ fontSize: 14, color: "#888" }}>
             Ei tallennettuja kuitteja
           </ThemedText>
-          <ThemedButton
-            text="Siirry luomaan kuitti"
+          <Button
+            mode="contained"
+            icon="receipt-text-arrow-right"
             style={{ marginTop: 20 }}
             onPress={() => {
               navigation.navigate("receipt");
             }}
-            color="green"
-          ></ThemedButton>
+          >
+            Siirry luomaan kuitti
+          </Button>
         </ThemedView>
       ) : (
         receipts.map((receipt: any, index: number) => (
@@ -93,43 +153,39 @@ export default function ReceiptList({
             </ThemedView>
 
             <ThemedView style={styles.buttonRow}>
-              <Pressable
-                style={styles.button}
-                onHoverIn={() => {
-                  setShowDeleteMessage(false);
-                }}
-                onHoverOut={() => {
-                  setShowDeleteMessage(true);
-                }}
-              >
-                <AntDesign name="delete" color="#5f0000ff" size={20} />
-                <ThemedText style={styles.tooltip}>delete</ThemedText>
-              </Pressable>
-              <Pressable
-                style={styles.button}
+              <Button
+                compact
+                textColor={MD3Colors.error50}
+                icon="delete"
+                mode="text"
                 onPress={() => {
-                  deleteReceipt(receipt, index);
+                  setToDelete({ receipt, index });
+                  showModal();
                 }}
               >
-                <AntDesign
-                  name="edit"
-                  color="#878a00ff"
-                  size={20}
-                  onPress={() => {
-                    navigation.navigate("receipt", { receipt: receipt });
-                  }}
-                />
-                <ThemedText style={styles.tooltip}>edit</ThemedText>
-              </Pressable>
-              <Pressable
-                style={styles.button}
+                Poista
+              </Button>
+              <Button
+                compact
+                textColor={"#f4fd79ff"}
+                icon="delete"
+                mode="text"
+                onPress={() => {
+                  navigation.navigate("receipt", { receipt: receipt });
+                }}
+              >
+                Muokkaa
+              </Button>
+              <Button
+                compact
+                icon="delete"
+                mode="text"
                 onPress={() => {
                   chooseReceipt(receipt);
                 }}
               >
-                <AntDesign name="enter" color="#007aff" size={20} />
-                <ThemedText style={styles.tooltip}>choose</ThemedText>
-              </Pressable>
+                Jaa kulut
+              </Button>
             </ThemedView>
           </ThemedView>
         ))
@@ -143,6 +199,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignContent: "center",
+    gap: 5,
   },
   button: {
     alignItems: "center",
@@ -153,4 +210,5 @@ const styles = StyleSheet.create({
     padding: 5,
     color: "grey",
   },
+  confirmBox: { padding: 10 },
 });
