@@ -1,4 +1,3 @@
-import { ThemedButton } from "@/components/themed-button";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
@@ -48,17 +47,50 @@ export default function ReceiptScreen() {
   const progress = useSharedValue<number>(0);
   const navigation = useNavigation<any>();
   const route = useRoute();
+
   // TODO: Save and fetch sharers to/from storage
-  const [sharers, setSharers] = useState<any[]>([
-    { label: "J", value: 0 },
-    { label: "L", value: 1 },
-    { label: "K", value: 2 },
-  ]);
+  const SHARERS_KEY = "@sharers";
+  const defaultSharers = [
+    { name: "J", value: "0" },
+    { name: "L", value: "1" },
+    { name: "K", value: "2" },
+  ];
+  const [sharers, setSharers] = useState<any[]>(defaultSharers);
+
+  // Load sharers from storage on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SHARERS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length) {
+            setSharers(parsed);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load sharers from storage:", err);
+      }
+    })();
+  }, []);
+
+  // Persist sharers to storage whenever they change
+  useEffect(() => {
+    (async () => {
+      try {
+        await AsyncStorage.setItem(SHARERS_KEY, JSON.stringify(sharers));
+      } catch (err) {
+        console.error("Failed to save sharers to storage:", err);
+      }
+    })();
+  }, [sharers]);
+
   const [selectedSharers, setSelectedSharers] = useState<string[]>([]);
   const [addSharer, setAddSharer] = useState<boolean>(false);
   const [sharerName, setSharerName] = useState<string>("");
 
-  let tempName = "";
+  let tempName: string = "";
+  let tempSharer: string = "";
 
   useEffect(() => {
     if (route.params) {
@@ -70,7 +102,7 @@ export default function ReceiptScreen() {
       setReceiptName(receivedReceipt.name);
       if (receivedReceipt.sharers) {
         setSelectedSharers(
-          receivedReceipt.sharers.map((item: any) => item.value)
+          receivedReceipt.sharers.map((item: any) => item.value.toString())
         );
       }
     }
@@ -78,7 +110,7 @@ export default function ReceiptScreen() {
 
   interface SelectedProps {
     selectedSharers: string[];
-    setSelectedSharers: (selectedSharers: string[]) => void;
+    setSelectedSharers: React.Dispatch<React.SetStateAction<string[]>>;
   }
 
   //FIXME: Fix the component closing every select?
@@ -86,15 +118,39 @@ export default function ReceiptScreen() {
     selectedSharers,
     setSelectedSharers,
   }: SelectedProps) => {
-    const renderItem = (item: { label: string }) => {
+    const renderItem = (item: { value: any; name: string }) => {
       return (
-        <ThemedView style={styles.item}>
-          <ThemedText style={styles.selectedTextStyle}>{item.label}</ThemedText>
+        <ThemedView style={styles.item} key={item.value}>
+          <ThemedText
+            style={
+              selectedSharers.includes(item.value)
+                ? styles.selectedTextStyle
+                : styles.placeholderStyle
+            }
+          >
+            {item.name}
+          </ThemedText>
           <AntDesign
             style={styles.icon}
-            color="white"
-            name="safety"
+            color="red"
+            name="delete"
             size={20}
+            onPress={() => {
+              setSharers((prev: any[]) => {
+                let temp = [...prev];
+                const index = temp.findIndex((i) => i.name === item.name);
+                if (index > -1) {
+                  temp.splice(index, 1);
+                  // Also remove from selectedSharers if present
+                  setSelectedSharers((prevSelected: string[]) =>
+                    prevSelected.filter((value) => value !== item.value)
+                  );
+                  return temp;
+                }
+                // Ensure we always return an array (no-op if not found)
+                return prev;
+              });
+            }}
           />
         </ThemedView>
       );
@@ -104,16 +160,16 @@ export default function ReceiptScreen() {
       <ThemedView style={[styles.container, { marginBottom: 20 }]}>
         <MultiSelect
           style={styles.dropdown}
-          placeholderStyle={styles.placeholderStyle}
-          selectedTextStyle={styles.selectedTextStyle}
-          inputSearchStyle={styles.inputSearchStyle}
           iconStyle={styles.iconStyle}
           data={sharers}
+          selectedTextStyle={styles.selectedTextStyle}
+          inputSearchStyle={styles.inputSearchStyle}
           labelField="label"
           valueField="value"
           placeholder="Valitse jakajat"
           value={selectedSharers}
           search
+          activeColor="green"
           searchPlaceholder="Etsi..."
           onChange={(item) => {
             setSelectedSharers(item);
@@ -122,19 +178,17 @@ export default function ReceiptScreen() {
             setSelectedSharers(item);
           }}
           renderLeftIcon={() => (
-            <AntDesign
-              style={styles.icon}
-              color="white"
-              name="safety"
-              size={20}
-            />
+            <AntDesign style={styles.icon} name="check-circle" size={20} />
           )}
           renderItem={renderItem}
           renderSelectedItem={(item, unSelect) => (
-            <TouchableOpacity onPress={() => unSelect && unSelect(item)}>
+            <TouchableOpacity
+              onPress={() => unSelect && unSelect(item)}
+              key={item.value}
+            >
               <ThemedView style={styles.selectedStyle}>
                 <ThemedText style={styles.textSelectedStyle}>
-                  {item.label}
+                  {item.name}
                 </ThemedText>
                 <AntDesign color="red" name="delete" size={17} />
               </ThemedView>
@@ -339,6 +393,40 @@ export default function ReceiptScreen() {
     [products, onChangeText, removeAtIndex]
   );
 
+  const imageItem = useCallback(
+    ({ index }: { index: number }) => (
+      <ThemedView
+        style={{
+          flex: 1,
+          borderWidth: 1,
+          justifyContent: "center",
+          borderColor: "#888",
+          borderRadius: 10,
+          overflow: "hidden",
+        }}
+      >
+        <ThemedText
+          style={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            zIndex: 1,
+            fontSize: 16,
+            fontWeight: "bold",
+          }}
+        >
+          {index + 1} / {images.length}
+        </ThemedText>
+        <Image
+          source={{ uri: images[index] }}
+          style={styles.image}
+          contentFit="contain"
+        />
+      </ThemedView>
+    ),
+    [images]
+  );
+
   return (
     <SafeAreaView
       style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
@@ -352,36 +440,7 @@ export default function ReceiptScreen() {
               height={width}
               data={images}
               onProgressChange={progress}
-              renderItem={({ index }) => (
-                <ThemedView
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    justifyContent: "center",
-                    borderColor: "#888",
-                    borderRadius: 10,
-                    overflow: "hidden",
-                  }}
-                >
-                  <ThemedText
-                    style={{
-                      position: "absolute",
-                      top: 10,
-                      left: 10,
-                      zIndex: 1,
-                      fontSize: 16,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {index + 1} / {images.length}
-                  </ThemedText>
-                  <Image
-                    source={{ uri: images[index] }}
-                    style={styles.image}
-                    contentFit="contain"
-                  />
-                </ThemedView>
-              )}
+              renderItem={imageItem}
             />
 
             <Pagination.Basic
@@ -437,8 +496,8 @@ export default function ReceiptScreen() {
             <Button
               compact
               icon="restart"
-              mode="contained"
-              textColor={MD3Colors.error30}
+              mode="contained-tonal"
+              textColor={MD3Colors.error60}
               onPress={removeData}
             >
               Nollaa
@@ -563,38 +622,52 @@ export default function ReceiptScreen() {
                           flexDirection: "row",
                           gap: 10,
                           marginBottom: 10,
+                          width: "100%",
+                          justifyContent: "center",
+                          alignItems: "center",
                         }}
                       >
                         <TextInput
-                          style={styles.input}
-                          placeholder="Nimi"
-                          value={sharerName}
-                          onChangeText={setSharerName}
+                          style={[{ width: "40%" }]}
+                          mode="outlined"
+                          placeholder="Uusi jakaja"
+                          onChangeText={(text) => (tempSharer = text)}
                         ></TextInput>
-                        <ThemedButton
-                          text="+"
-                          color="green"
+                        <Button
+                          style={[{ width: "25%" }]}
+                          mode="contained-tonal"
+                          icon="account-plus"
                           onPress={() => {
                             setSharers((prev: any[]) => {
                               if (
                                 !prev.some(
-                                  (item: any) => item.label === sharerName
+                                  (item: any) => item.name === sharerName
                                 )
                               ) {
                                 return [
                                   ...prev,
-                                  { label: sharerName, value: sharers.length },
+                                  {
+                                    name: tempSharer,
+                                    value: String(sharers.length),
+                                  },
                                 ];
                               }
                               return prev;
                             });
+                            setSelectedSharers((prev) => [
+                              ...prev,
+                              String(sharers.length),
+                            ]);
                             setSharerName("");
+                            tempSharer = "";
                           }}
-                        />
+                        >
+                          Lisää
+                        </Button>
                       </ThemedView>
                     ) : null}
                     <Button
-                      mode="contained"
+                      mode="contained-tonal"
                       icon="account-plus"
                       style={{ marginBottom: 20 }}
                       onPress={() => {
@@ -664,7 +737,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   input: {
-    color: "white",
     width: "65%",
     borderRadius: 5,
     borderColor: "#555",
@@ -680,23 +752,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   dropdown: {
-    width: "100%",
-    height: 50,
-    borderRadius: 12,
+    width: "60%",
+    borderRadius: 5,
+    borderColor: "#555",
     padding: 12,
-    backgroundColor: "#323232",
-    borderColor: "grey",
     borderWidth: 1,
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
-    elevation: 2,
+    backgroundColor: "#adadadff",
   },
   placeholderStyle: {
     fontSize: 16,
-    color: "white",
   },
   selectedTextStyle: {
-    fontSize: 14,
+    backgroundColor: "#3a5538ff",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   iconStyle: {
     width: 20,
@@ -723,20 +793,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 14,
-    backgroundColor: "#323232",
+    borderColor: "#555",
     borderWidth: 1,
-    borderColor: "grey",
-    shadowColor: "#000",
+
     marginTop: 8,
     marginRight: 12,
     paddingHorizontal: 6,
     paddingVertical: 8,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
 
     elevation: 2,
   },

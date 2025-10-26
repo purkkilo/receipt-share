@@ -167,8 +167,8 @@ export default function ReceiptList({
               </Button>
               <Button
                 compact
-                textColor={"#f4fd79ff"}
-                icon="delete"
+                textColor={"#a0a82aff"}
+                icon="pencil"
                 mode="text"
                 onPress={() => {
                   navigation.navigate("receipt", { receipt: receipt });
@@ -178,7 +178,7 @@ export default function ReceiptList({
               </Button>
               <Button
                 compact
-                icon="delete"
+                icon="share"
                 mode="text"
                 onPress={() => {
                   chooseReceipt(receipt);
