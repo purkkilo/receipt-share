@@ -19,8 +19,8 @@ export const calculateShares = (receipt: Receipt, products: Product[]) => {
   const sharerTotals: { [key: string]: number } = {};
 
   products.forEach((product: Product) => {
-    const splitPrice = product.price / (product.sharers.length || 1);
-    product.sharers.forEach((sharer) => {
+    const splitPrice = product.price / (product.sharers?.length || 1);
+    product.sharers?.forEach((sharer) => {
       if (!individualTotals[sharer]) {
         individualTotals[sharer] = 0;
       }
@@ -32,9 +32,9 @@ export const calculateShares = (receipt: Receipt, products: Product[]) => {
     receipt.productTotal -
     Object.values(individualTotals).reduce((sum, val) => sum + val, 0);
 
-  receipt.sharers.forEach((sharer: any) => {
+  receipt.sharers?.forEach((sharer: any) => {
     sharerTotals[sharer.name] =
-      sharedTotal / receipt.sharers.length +
+      sharedTotal / (receipt.sharers?.length || 1) +
       (individualTotals[sharer.name] || 0);
   });
 

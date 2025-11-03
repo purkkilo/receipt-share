@@ -116,10 +116,15 @@ export default function ReceiptList({
               borderWidth: 1,
               borderColor: "#ccc",
               borderRadius: 8,
-              padding: 10,
-              marginBottom: 10,
+              padding: 5,
+              margin: 5,
             }}
           >
+            <ThemedText
+              style={{ fontSize: 14, color: "#666", alignSelf: "center" }}
+            >
+              {new Date(receipt.timestamp).toLocaleString()}
+            </ThemedText>
             <ThemedView
               style={{
                 flexDirection: "row",
@@ -137,15 +142,12 @@ export default function ReceiptList({
               >
                 {receipt.name}
               </ThemedText>
-              <ThemedText
-                style={{ fontSize: 14, color: "#666", alignSelf: "center" }}
-              >
-                {new Date(receipt.timestamp).toLocaleString()}
-              </ThemedText>
+
               <ThemedText style={styles.currencyContainer}>
                 {receipt.productTotal.toFixed(2)}€
               </ThemedText>
             </ThemedView>
+
             <ThemedView
               style={{
                 flexDirection: "row",

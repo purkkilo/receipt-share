@@ -12,14 +12,36 @@
  * - Return confidence score (0..1) based on proximity/size heuristics
  */
 export function extractProducts(tokens) {
-  // defensive copy
-  tokens = (tokens || []).map((t) => ({
-    text: String(t.text || "").trim(),
-    left: Number(t.bounding?.left || 0),
-    top: Number(t.bounding?.top || 0),
-    width: Number(t.bounding?.width || 0),
-    height: Number(t.bounding?.height || 0),
-  }));
+  // Step 1: Split multi-line tokens using OCR line data if available
+  const expandedTokens = [];
+  for (const t of tokens) {
+    if (t.lines && Array.isArray(t.lines) && t.lines.length > 1) {
+      // Token contains multiple lines - split them
+      for (const line of t.lines) {
+        if (line.text) {
+          expandedTokens.push({
+            text: String(line.text).trim(),
+            left: Number(line.bounding?.left ?? t.bounding?.left ?? 0),
+            top: Number(line.bounding?.top ?? t.bounding?.top ?? 0),
+            width: Number(line.bounding?.width ?? t.bounding?.width ?? 0),
+            height: Number(line.bounding?.height ?? t.bounding?.height ?? 0),
+          });
+        }
+      }
+    } else {
+      // Single line token - keep as is
+      expandedTokens.push({
+        text: String(t.text || "").trim(),
+        left: Number(t.bounding?.left || 0),
+        top: Number(t.bounding?.top || 0),
+        width: Number(t.bounding?.width || 0),
+        height: Number(t.bounding?.height || 0),
+      });
+    }
+  }
+
+  // defensive copy with expanded tokens
+  tokens = expandedTokens;
 
   if (!tokens.length) return [];
 
@@ -46,15 +68,19 @@ export function extractProducts(tokens) {
 
   // regex to find price-like substring (captures e.g. 2,45 or 28.32)
   const priceSubRe = /(\d{1,3}[,\.]\d{2})/;
-  const fuzzyNum = (s) => {
+  const fuzzyNum = (s, isStandalone = false) => {
     if (!s) return null;
     // common OCR fixes: OCR often confuses O with 0 in numeric tokens
     // only replace 'O'->'0' when token has digits and letters O
     let t = s.replace(/\u2019/g, "'").trim();
     if (/[\d]/.test(t) && /O/.test(t)) t = t.replace(/O/g, "0");
-    // Try to extract first price-like pattern
-    const m = t.match(priceSubRe);
-    if (!m) return null;
+
+    // For standalone tokens (likely price column), extract first match
+    // For embedded prices in product names, prefer last match (actual price, not size)
+    const matches = Array.from(t.matchAll(new RegExp(priceSubRe.source, "g")));
+    if (!matches.length) return null;
+
+    const m = isStandalone ? matches[0] : matches[matches.length - 1];
     const raw = m[1];
     // normalize comma to dot for parseFloat
     const normalized = raw.replace(",", ".");
@@ -64,9 +90,24 @@ export function extractProducts(tokens) {
   };
 
   // mark price candidates
+  // First pass: find standalone numeric tokens (likely in price column)
+  // Be more strict: must be mostly numeric and not contain letters (except currency symbols)
+  const standaloneNumeric = tokens.map((t, i) => ({
+    idx: i,
+    isStandalone: /^[\d\s,.€/\-]+$/.test(t.text.trim()),
+  }));
+
   const priceCandidates = tokens
     .map((t, i) => {
-      const parsed = fuzzyNum(t.text);
+      const isStandalone = standaloneNumeric[i].isStandalone;
+      // Only extract prices from standalone tokens OR tokens in the rightmost area
+      const isRightmostArea = t.left > 1000; // heuristic based on your receipt layout
+
+      if (!isStandalone && !isRightmostArea) {
+        return { idx: i, token: t, parsed: null }; // skip embedded prices in product names
+      }
+
+      const parsed = fuzzyNum(t.text, isStandalone);
       return {
         idx: i,
         token: t,
@@ -74,6 +115,7 @@ export function extractProducts(tokens) {
         xRight: right(t),
         xCenter: xCenter(t),
         yCenter: yCenter(t),
+        isStandalone,
       };
     })
     .filter((p) => p.parsed !== null);
@@ -175,13 +217,22 @@ export function extractProducts(tokens) {
     "Jäsennumero",
     "Jäsen",
     "KASSAKUITTI",
-    "KPL",
     "OSTOT",
     "YHTEENSÄ",
+    "NORM.",
+    "KAMPANJA",
+    "€/KPL",
   ];
 
   function isBlacklistedLine(s) {
     const S = (s || "").toUpperCase();
+    // Special case: standalone "KPL" lines should be blacklisted, but not product names containing "KPL"
+    if (S.trim() === "KPL") return true;
+    if (/^\d+\s*KPL$/i.test(S.trim())) return true; // "2 KPL", "24 KPL" etc
+
+    // Filter out weight/quantity detail lines (e.g., "0,226 KG", "2,030 KG")
+    if (/^\d+[,.]\d+\s*(KG|G|ML|L)\s*$/i.test(S.trim())) return true;
+
     return blacklistKeywords.some((k) => S.includes(k.toUpperCase()));
   }
 
@@ -307,7 +358,7 @@ export function extractProducts(tokens) {
 
     // push result
     results.push({
-      id: chosenPrice.idx || Math.random().toString(36).substring(2, 9),
+      id: chosenPrice.idx + Math.random().toString(36).substring(2, 9),
       name: name || "-",
       price: chosenPrice.parsed.value,
       sharers: [],

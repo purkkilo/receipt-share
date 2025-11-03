@@ -9,7 +9,7 @@ import {
 import { ThemedView } from "@/components/themed-view";
 import { saveReceiptToStorage } from "@/utils/storageApi";
 import { Product, Receipt, calculateShares } from "@/utils/util";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, Checkbox, Divider, Tooltip } from "react-native-paper";
 import { ThemedText } from "./themed-text";
 
@@ -43,6 +43,8 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
     setSharerTotals(sharerTotals);
   }, [productSharings]);
 
+  // FIXME: After adding new items, checking the checboxes
+  // Checks more than one box at a time incorrectly
   const handleSharerSelect = async (productId: number, sharerName: string) => {
     let updatedProducts: Product[] = [];
     setProductSharings((prevProducts: Product[]) => {
@@ -167,6 +169,94 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
     </ThemedView>
   );
 
+  const listHeader = useCallback(() => {
+    return (
+      <ThemedView
+        style={{
+          marginBottom: 10,
+          alignItems: "center",
+        }}
+        key={"header"}
+      >
+        <ThemedView
+          style={{
+            marginBottom: 10,
+            borderWidth: 1,
+            borderColor: "#ccc",
+            padding: 10,
+            borderRadius: 8,
+          }}
+        >
+          <ThemedText type="subtitle" style={{ alignSelf: "center" }}>
+            Jaetut kulut
+          </ThemedText>
+          {Object.keys(sharerTotals).map((sharerName, index) => (
+            <ThemedView key={index}>
+              <ThemedView
+                style={{
+                  flexDirection: "row",
+                  gap: 20,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingVertical: 5,
+                }}
+              >
+                <ThemedText type="default">{sharerName}</ThemedText>
+
+                <ThemedText type="subtitle" style={styles.subtitle}>
+                  (Omat: {individualTotals[sharerName]?.toFixed(2) || "0.00"}
+                  €)
+                </ThemedText>
+                <Tooltip title="Kopioi summa">
+                  <TouchableOpacity
+                    onPress={() => {
+                      shareToOthers(false, sharerName);
+                    }}
+                  >
+                    <ThemedText type="default" style={styles.currencyContainer}>
+                      {sharerTotals[sharerName].toFixed(2)}€
+                    </ThemedText>
+                  </TouchableOpacity>
+                </Tooltip>
+              </ThemedView>
+              <Divider bold />
+            </ThemedView>
+          ))}
+          <ThemedView
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderBottomColor: "#ccc",
+              marginTop: 10,
+            }}
+          >
+            <ThemedText>Yhteensä</ThemedText>
+            <Tooltip title="Kopio summat leikepöydälle">
+              <TouchableOpacity
+                onPress={() => {
+                  shareToOthers(true);
+                }}
+              >
+                <ThemedText style={styles.currencyContainer}>
+                  {receipt.productTotal.toFixed(2)}€
+                </ThemedText>
+              </TouchableOpacity>
+            </Tooltip>
+          </ThemedView>
+        </ThemedView>
+
+        <ThemedText type="subtitle">Tuotteet</ThemedText>
+        <ThemedText type="subtitle" style={styles.subtitle}>
+          Valitse listalta nimet niiden tuotteiden kohdalta,
+        </ThemedText>
+        <ThemedText type="subtitle" style={styles.subtitle}>
+          joita ei jaeta kaikkien kesken
+        </ThemedText>
+      </ThemedView>
+    );
+  }, [sharerTotals, individualTotals]);
+
   return (
     <ThemedView style={{ alignItems: "center" }}>
       <FlatList
@@ -180,97 +270,12 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
           index,
         })}
         removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        initialNumToRender={10}
-        windowSize={21}
-        ListHeaderComponent={() => (
-          <ThemedView
-            style={{
-              marginBottom: 10,
-              alignItems: "center",
-            }}
-            key={"header"}
-          >
-            <ThemedView
-              style={{
-                marginBottom: 10,
-                borderWidth: 1,
-                borderColor: "#ccc",
-                padding: 10,
-                borderRadius: 8,
-              }}
-            >
-              <ThemedText type="subtitle" style={{ alignSelf: "center" }}>
-                Jaetut kulut
-              </ThemedText>
-              {Object.keys(sharerTotals).map((sharerName, index) => (
-                <ThemedView key={index}>
-                  <ThemedView
-                    style={{
-                      flexDirection: "row",
-                      gap: 20,
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      paddingVertical: 5,
-                    }}
-                  >
-                    <ThemedText type="default">{sharerName}</ThemedText>
-
-                    <ThemedText type="subtitle" style={styles.subtitle}>
-                      (Omat:{" "}
-                      {individualTotals[sharerName]?.toFixed(2) || "0.00"}
-                      €)
-                    </ThemedText>
-                    <Tooltip title="Kopioi summa">
-                      <TouchableOpacity
-                        onPress={() => {
-                          shareToOthers(false, sharerName);
-                        }}
-                      >
-                        <ThemedText
-                          type="default"
-                          style={styles.currencyContainer}
-                        >
-                          {sharerTotals[sharerName].toFixed(2)}€
-                        </ThemedText>
-                      </TouchableOpacity>
-                    </Tooltip>
-                  </ThemedView>
-                  <Divider bold />
-                </ThemedView>
-              ))}
-              <ThemedView
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderBottomColor: "#ccc",
-                  marginTop: 10,
-                }}
-              >
-                <ThemedText>Yhteensä</ThemedText>
-                <Tooltip title="Kopio summat leikepöydälle">
-                  <TouchableOpacity
-                    onPress={() => {
-                      shareToOthers(true);
-                    }}
-                  >
-                    <ThemedText style={styles.currencyContainer}>
-                      {receipt.productTotal.toFixed(2)}€
-                    </ThemedText>
-                  </TouchableOpacity>
-                </Tooltip>
-              </ThemedView>
-            </ThemedView>
-
-            <ThemedText type="subtitle">Tuotteet</ThemedText>
-            <ThemedText type="subtitle" style={styles.subtitle}>
-              Valitse listalta nimet niiden tuotteiden kohdalta,
-            </ThemedText>
-            <ThemedText type="subtitle" style={styles.subtitle}>
-              joita ei jaeta kaikkien kesken
-            </ThemedText>
-          </ThemedView>
+        maxToRenderPerBatch={6}
+        initialNumToRender={6}
+        windowSize={12}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={() => (
+          <ThemedView style={{ marginTop: 50, padding: 40 }}></ThemedView>
         )}
       />
     </ThemedView>

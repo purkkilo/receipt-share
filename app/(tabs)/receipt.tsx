@@ -1,3 +1,4 @@
+import FloatPaperInput from "@/components/float-input";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
@@ -20,8 +21,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { MultiSelect } from "react-native-element-dropdown";
-import MlkitOcr from "react-native-mlkit-ocr";
-import { Button, MD3Colors, TextInput } from "react-native-paper";
+import MlkitOcr, { MKLBlock } from "react-native-mlkit-ocr";
+import { Button, IconButton, MD3Colors, TextInput } from "react-native-paper";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
@@ -32,7 +33,7 @@ import Carousel, {
   Pagination,
 } from "react-native-reanimated-carousel";
 import { SafeAreaView } from "react-native-safe-area-context";
-const width = Dimensions.get("window").width - 19;
+const width = Dimensions.get("window").width - 110;
 
 // This is the default configuration
 configureReanimatedLogger({
@@ -53,7 +54,6 @@ export default function ReceiptScreen() {
   const [sharers, setSharers] = useState<any[]>([]);
   const route = useRoute();
 
-  const SHARERS_KEY = "@sharers";
   // Load sharers from storage on mount
   useEffect(() => {
     (async () => {
@@ -81,9 +81,14 @@ export default function ReceiptScreen() {
   const [selectedSharers, setSelectedSharers] = useState<string[]>([]);
   const [addSharer, setAddSharer] = useState<boolean>(false);
   const [sharerName, setSharerName] = useState<string>("");
+  const [addProduct, setAddProduct] = useState<boolean>(false);
+  const [productName, setProductName] = useState<string>("");
+  const [productPrice, setProductPrice] = useState<number | null>(0);
 
   let tempName: string = "";
   let tempSharer: string = "";
+  let tempProductName: string = "";
+  let tempProductPrice: string = "";
 
   useEffect(() => {
     if (route.params) {
@@ -231,6 +236,10 @@ export default function ReceiptScreen() {
       return;
     }
     const imageResult = await MlkitOcr.detectFromUri(imageUri);
+    imageResult.forEach((e: MKLBlock) => {
+      // Remove false price detections (4, 19 -> 4,19)
+      e.text = e.text.replace(", ", ",").trim();
+    });
     const products = extractProducts(imageResult);
 
     if (products.length) {
@@ -263,7 +272,6 @@ export default function ReceiptScreen() {
         images,
         timestamp: receipt ? receipt.timestamp : Date.now(),
       };
-
       // Key format: @receipt_<timestamp>
       await saveReceiptToStorage(tempReceipt).then(() => {
         navigation.navigate("index", { receipt: tempReceipt });
@@ -355,10 +363,10 @@ export default function ReceiptScreen() {
           mode="outlined"
           keyboardType="decimal-pad"
           inputMode="decimal"
-          value={item.price ? item.price.toString().replace(".", ",") : ""}
+          value={item.price ? item.price.toString().replace(",", ".") : ""}
           onChangeText={(text) => {
             // Allow only numbers, commas, and periods
-            const filtered = text.replace(/[^0-9.,]/g, "");
+            const filtered = text.replace(/[^0-9,]/g, "");
             onChangeText(index, "price")(filtered);
           }}
         ></TextInput>
@@ -395,7 +403,7 @@ export default function ReceiptScreen() {
             top: 10,
             left: 10,
             zIndex: 1,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: "bold",
           }}
         >
@@ -437,7 +445,7 @@ export default function ReceiptScreen() {
               activeDotStyle={{
                 backgroundColor: "#888",
               }}
-              containerStyle={{ gap: 5, marginTop: 10 }}
+              containerStyle={{ gap: 5, marginVertical: 5 }}
               onPress={onPressPagination}
             />
           </ThemedView>
@@ -447,12 +455,12 @@ export default function ReceiptScreen() {
         {products.length ? (
           <ThemedView
             style={{
-              marginBottom: 10,
-              paddingRight: 20,
-              paddingLeft: 20,
+              marginTop: 30,
+              paddingHorizontal: 20,
               flexDirection: "row",
               justifyContent: "space-between",
               width: "100%",
+              alignItems: "center",
             }}
           >
             <Button
@@ -510,7 +518,76 @@ export default function ReceiptScreen() {
             </ThemedText>
           </ThemedView>
         )}
-        <ThemedText style={{ fontSize: 20, fontWeight: "bold", margin: 10 }}>
+        <ThemedView style={{ alignItems: "center" }}>
+          {addProduct ? (
+            <>
+              <ThemedView
+                style={{
+                  flexDirection: "row",
+                  paddingHorizontal: 30,
+                  paddingVertical: 10,
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 220,
+                  height: 60,
+                }}
+              >
+                <TextInput
+                  style={styles.input}
+                  mode="outlined"
+                  label="Tuote"
+                  value={productName}
+                  onChangeText={(text) => setProductName(text)}
+                />
+                <FloatPaperInput
+                  value={productPrice}
+                  onChange={(n) => setProductPrice(n)}
+                  label="Hinta"
+                  allowNegative={false}
+                  style={styles.input}
+                />
+                <IconButton
+                  icon="cart-plus"
+                  mode="outlined"
+                  onPress={() => {
+                    setProducts([
+                      ...products,
+                      {
+                        id:
+                          products.length +
+                          Math.random().toString(36).substring(2, 9),
+                        name: productName,
+                        price: productPrice,
+                        sharers: [],
+                      },
+                    ]);
+                    // reset controlled inputs
+                    setProductName("");
+                    setProductPrice(0);
+                  }}
+                />
+                <Button
+                  mode="contained"
+                  onPress={() => setAddProduct(!addProduct)}
+                >
+                  Piilota
+                </Button>
+              </ThemedView>
+            </>
+          ) : (
+            <Button
+              style={{ bottom: -5, marginBottom: 5 }}
+              icon="cart-plus"
+              mode="contained"
+              onPress={() => setAddProduct(!addProduct)}
+            >
+              Lisää tuote
+            </Button>
+          )}
+        </ThemedView>
+
+        <ThemedText style={{ fontSize: 20, fontWeight: "bold", bottom: -5 }}>
           Kuitti
         </ThemedText>
         <ThemedView
@@ -534,7 +611,10 @@ export default function ReceiptScreen() {
           </ThemedText>
         </ThemedView>
         <FlatList
-          style={{ width: "100%" }}
+          style={{
+            width: "100%",
+            minHeight: addProduct && showImage ? 165 : 210,
+          }}
           data={products}
           keyExtractor={(_, index) => index.toString()}
           renderItem={renderItem}
@@ -543,10 +623,9 @@ export default function ReceiptScreen() {
             offset: 60 * index,
             index,
           })}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          initialNumToRender={10}
-          windowSize={21}
+          maxToRenderPerBatch={12}
+          initialNumToRender={12}
+          windowSize={12}
           ListEmptyComponent={() => (
             <ThemedText style={{ alignSelf: "center", marginBottom: 20 }}>
               Kuitti on vielä tyhjä
@@ -554,19 +633,6 @@ export default function ReceiptScreen() {
           )}
           ListFooterComponent={() => (
             <>
-              <Button
-                icon="cart-plus"
-                mode="contained"
-                style={{ marginBottom: 20 }}
-                onPress={() =>
-                  setProducts([
-                    ...products,
-                    { id: products.length, name: "", price: null, sharers: [] },
-                  ])
-                }
-              >
-                Lisää tuote
-              </Button>
               {products.length ? (
                 <ThemedView style={{ alignItems: "center" }}>
                   <ThemedText style={{ marginBottom: 20 }}>
@@ -716,7 +782,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingTop: 20,
   },
   image: {
     width: 300,
