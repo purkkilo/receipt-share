@@ -307,8 +307,10 @@ export function extractProducts(tokens) {
 
     // push result
     results.push({
+      id: chosenPrice.idx || Math.random().toString(36).substring(2, 9),
       name: name || "-",
       price: chosenPrice.parsed.value,
+      sharers: [],
       priceText: chosenPrice.parsed.raw,
       top: row.meanY,
       left: mainPriceX, // approximate column location

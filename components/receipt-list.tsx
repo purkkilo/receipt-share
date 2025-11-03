@@ -1,8 +1,9 @@
 import { StyleSheet } from "react-native";
 
 import { ThemedView } from "@/components/themed-view";
+import { calculateShares } from "@/utils/util";
 import { useState } from "react";
-import { Button, MD3Colors, Modal, Portal } from "react-native-paper";
+import { Button, Chip, MD3Colors, Modal, Portal } from "react-native-paper";
 import { ThemedText } from "./themed-text";
 
 interface ReceiptListProps {
@@ -141,17 +142,30 @@ export default function ReceiptList({
               >
                 {new Date(receipt.timestamp).toLocaleString()}
               </ThemedText>
-              <ThemedText
-                style={{
-                  fontSize: 14,
-                  fontWeight: "bold",
-                  textAlign: "center",
-                }}
-              >
+              <ThemedText style={styles.currencyContainer}>
                 {receipt.productTotal.toFixed(2)}€
               </ThemedText>
             </ThemedView>
-
+            <ThemedView
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              {receipt.sharers?.map((sharer: any, sIndex: number) => {
+                return (
+                  <Chip icon={"account"} key={sIndex} mode="outlined">
+                    {sharer.name}{" "}
+                    {calculateShares(receipt, receipt.products).sharerTotals[
+                      sharer.name
+                    ]?.toFixed(2)}
+                    €
+                  </Chip>
+                );
+              })}
+            </ThemedView>
             <ThemedView style={styles.buttonRow}>
               <Button
                 compact
@@ -199,7 +213,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignContent: "center",
-    gap: 5,
+    marginTop: 5,
   },
   button: {
     alignItems: "center",
@@ -211,4 +225,13 @@ const styles = StyleSheet.create({
     color: "grey",
   },
   confirmBox: { padding: 10 },
+  subtitle: { fontSize: 12, color: "#888" },
+  currencyContainer: {
+    borderWidth: 1,
+    backgroundColor: "rgba(148, 255, 157, 0.1)",
+    borderColor: "rgba(148, 255, 157, 0.4)",
+    padding: 5,
+    borderRadius: 5,
+    justifyContent: "flex-end",
+  },
 });

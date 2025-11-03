@@ -4,7 +4,10 @@ import ReceiptList from "@/components/receipt-list";
 import ShareView from "@/components/share-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  deleteReceiptFromStorage,
+  getAllReceiptsFromStorage,
+} from "@/utils/storageApi";
 import { useRoute } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
 import { useEffect, useState } from "react";
@@ -18,29 +21,24 @@ export default function HomeScreen() {
 
   const loadReceipts = async () => {
     try {
-      // Get all keys and filter for keys that represent individual receipts
-      const allKeys = await AsyncStorage.getAllKeys();
-      const receiptKeys = allKeys.filter((key) => key.startsWith("@receipt_"));
-      // Load all receipts at once
-      const receiptsRaw = await AsyncStorage.multiGet(receiptKeys);
-      const receipts = receiptsRaw
-        .map(([key, value]) => (value ? JSON.parse(value) : null))
-        .filter((receipt) => receipt !== null);
-      // You can now use these receipts to set a state for a list of receipts if needed:
+      const receipts = await getAllReceiptsFromStorage();
       setReceipts(receipts);
     } catch (error) {
       console.error("Error loading receipts:", error);
     }
   };
 
-  const deleteReceipt = async (receipt: any, index: number) => {
-    await AsyncStorage.removeItem("@receipt_" + receipt.timestamp)
-      .then(() => {
-        setReceipts(receipts.filter((r) => r.timestamp !== receipt.timestamp));
-      })
-      .catch((error) => {
-        console.error("Error deleting receipt:", error);
+  const deleteReceipt = async (receipt: any) => {
+    try {
+      await deleteReceiptFromStorage(receipt).then(() => {
+        const updatedReceipts = receipts.filter(
+          (r) => r.timestamp !== receipt.timestamp
+        );
+        setReceipts(updatedReceipts);
       });
+    } catch (error) {
+      console.error("Error deleting receipt:", error);
+    }
   };
 
   useEffect(() => {

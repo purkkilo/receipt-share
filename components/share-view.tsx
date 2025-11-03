@@ -1,104 +1,288 @@
-import { StyleSheet, TouchableOpacity } from "react-native";
+import {
+  FlatList,
+  ListRenderItem,
+  Share,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
 
 import { ThemedView } from "@/components/themed-view";
+import { saveReceiptToStorage } from "@/utils/storageApi";
+import { Product, Receipt, calculateShares } from "@/utils/util";
 import { useEffect, useState } from "react";
-import { ThemedButton } from "./themed-button";
+import { Button, Checkbox, Divider, Tooltip } from "react-native-paper";
 import { ThemedText } from "./themed-text";
 
 interface ShareViewProps {
   receipt: any;
   setShareView: (isOpen: boolean) => void;
 }
-//TODO: Make list so that every product has it's own selection, now it's shared
-//TODO: Make the list scrollable
-const ProductShareList = ({
-  products,
-  sharers,
-}: {
-  products: any[];
-  sharers: any[];
-}) => {
-  const [selectedShares, setSelectedShares] = useState<
-    Map<string, Set<number>>
-  >(new Map(products.map((p) => [p.id, new Set()])));
 
-  const toggle = (productId: string, sharerId: number) => {
-    const next = new Map(selectedShares);
-    const sharerSet = next.get(productId) || new Set();
+const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
+  const [productSharings, setProductSharings] = useState<Product[]>(
+    receipt.products.map((product: any) => ({
+      ...(product as Product),
+      sharers: product.sharers || [],
+    }))
+  );
 
-    if (sharerSet.has(sharerId)) {
-      sharerSet.delete(sharerId);
-    } else {
-      sharerSet.add(sharerId);
+  const [individualTotals, setIndividualTotals] = useState<{
+    [key: string]: number;
+  }>({});
+  const [sharerTotals, setSharerTotals] = useState<{ [key: string]: number }>(
+    {}
+  );
+
+  useEffect(() => {
+    if (receipt.sharers.length === 0) return;
+    const { individualTotals, sharerTotals } = calculateShares(
+      receipt,
+      productSharings
+    );
+    setIndividualTotals(individualTotals);
+    setSharerTotals(sharerTotals);
+  }, [productSharings]);
+
+  const handleSharerSelect = async (productId: number, sharerName: string) => {
+    let updatedProducts: Product[] = [];
+    setProductSharings((prevProducts: Product[]) => {
+      updatedProducts = prevProducts.map((product) => {
+        if (product.id === productId) {
+          const newSharers = product.sharers.includes(sharerName)
+            ? product.sharers.filter((s: string) => s !== sharerName)
+            : [...product.sharers, sharerName];
+          return { ...product, sharers: newSharers };
+        }
+        return product;
+      });
+      return updatedProducts;
+    });
+    // Update receipt in storage
+    const updatedReceipt = {
+      ...receipt,
+      products: updatedProducts,
+    };
+    await saveReceiptToStorage(updatedReceipt)
+      .finally(() => {
+        // Update receipt reference in receipt-list
+        receipt.products = updatedProducts;
+      })
+      .catch((err) => console.error("Failed to save updated receipt:", err));
+  };
+  const shareToOthers = async (copyAll: boolean, sharerName?: string) => {
+    let clipboardText = "";
+    if (copyAll) {
+      clipboardText = "Jaetut kulut:\n";
+      Object.keys(sharerTotals).forEach((name) => {
+        clipboardText += `${name}: ${sharerTotals[name].toFixed(2)}€\n`;
+      });
+    } else if (sharerName) {
+      clipboardText = `${sharerName}: ${sharerTotals[sharerName].toFixed(2)}€`;
     }
-
-    next.set(productId, sharerSet);
-    setSelectedShares(next);
+    await Share.share({
+      message: clipboardText,
+    });
   };
 
-  return (
-    <>
-      {products.map((product: any) => (
-        <ThemedView
-          key={product.id}
+  const renderItem: ListRenderItem<Product> = ({ item: product }) => (
+    <ThemedView
+      style={{
+        gap: 5,
+        borderColor: "#555",
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 10,
+      }}
+    >
+      <ThemedView
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 5,
+        }}
+      >
+        <ThemedText
+          type="default"
           style={{
-            gap: 5,
-            borderColor: "#555",
             borderWidth: 1,
-            borderRadius: 8,
-            padding: 10,
-            marginBottom: 10,
-            width: "90%",
+            borderColor: "rgba(162, 184, 241, 0.4)",
+            backgroundColor: "rgba(162, 184, 241, 0.2)",
+            padding: 5,
+            borderRadius: 5,
           }}
         >
-          <ThemedText type="default">
-            {product.name} - {product.price}€
-          </ThemedText>
+          {product.name}
+        </ThemedText>
+        <ThemedText
+          type="default"
+          style={{
+            borderWidth: 1,
+            backgroundColor: "rgba(148, 255, 157, 0.1)",
+            borderColor: "rgba(148, 255, 157, 0.4)",
+            padding: 5,
+            borderRadius: 5,
+            justifyContent: "flex-end",
+          }}
+        >
+          {product.price}€
+        </ThemedText>
+      </ThemedView>
+
+      <ThemedView
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: 10,
+          alignSelf: "center",
+        }}
+      >
+        {receipt.sharers.map((sharer: any, idx: number) => (
           <ThemedView
+            key={idx}
             style={{
               flexDirection: "row",
-              flexWrap: "wrap",
-              gap: 10,
+              alignItems: "center",
+              justifyContent: "center",
+              borderColor: "#888",
+              borderWidth: 1,
+              borderRadius: 8,
+              paddingVertical: 2,
+              paddingHorizontal: 5,
             }}
           >
-            {sharers.map((sharer: any, idx: number) => (
-              <TouchableOpacity
-                key={idx}
+            <ThemedText type="default" style={{ marginRight: 8 }}>
+              {sharer.name}
+            </ThemedText>
+            <Checkbox
+              status={
+                product.sharers.includes(sharer.name) ? "checked" : "unchecked"
+              }
+              onPress={() => handleSharerSelect(product.id, sharer.name)}
+            ></Checkbox>
+          </ThemedView>
+        ))}
+      </ThemedView>
+    </ThemedView>
+  );
+
+  return (
+    <ThemedView style={{ alignItems: "center" }}>
+      <FlatList
+        style={{ maxHeight: 450 }}
+        data={productSharings}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderItem}
+        getItemLayout={(_, index) => ({
+          length: 60,
+          offset: 60 * index,
+          index,
+        })}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        initialNumToRender={10}
+        windowSize={21}
+        ListHeaderComponent={() => (
+          <ThemedView
+            style={{
+              marginBottom: 10,
+              alignItems: "center",
+            }}
+            key={"header"}
+          >
+            <ThemedView
+              style={{
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: "#ccc",
+                padding: 10,
+                borderRadius: 8,
+              }}
+            >
+              <ThemedText type="subtitle" style={{ alignSelf: "center" }}>
+                Jaetut kulut
+              </ThemedText>
+              {Object.keys(sharerTotals).map((sharerName, index) => (
+                <ThemedView key={index}>
+                  <ThemedView
+                    style={{
+                      flexDirection: "row",
+                      gap: 20,
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: 5,
+                    }}
+                  >
+                    <ThemedText type="default">{sharerName}</ThemedText>
+
+                    <ThemedText type="subtitle" style={styles.subtitle}>
+                      (Omat:{" "}
+                      {individualTotals[sharerName]?.toFixed(2) || "0.00"}
+                      €)
+                    </ThemedText>
+                    <Tooltip title="Kopioi summa">
+                      <TouchableOpacity
+                        onPress={() => {
+                          shareToOthers(false, sharerName);
+                        }}
+                      >
+                        <ThemedText
+                          type="default"
+                          style={styles.currencyContainer}
+                        >
+                          {sharerTotals[sharerName].toFixed(2)}€
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </Tooltip>
+                  </ThemedView>
+                  <Divider bold />
+                </ThemedView>
+              ))}
+              <ThemedView
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  padding: 10,
+                  justifyContent: "space-between",
+                  borderBottomColor: "#ccc",
+                  marginTop: 10,
                 }}
-                onPress={() => toggle(product.id, idx)}
               >
-                <ThemedView>
-                  <ThemedText type="default" style={{ marginRight: 8 }}>
-                    {`${sharer.name} ${
-                      selectedShares.get(product.id)?.has(idx) ? "☑" : "☐"
-                    }`}
-                  </ThemedText>
-                </ThemedView>
-              </TouchableOpacity>
-            ))}
+                <ThemedText>Yhteensä</ThemedText>
+                <Tooltip title="Kopio summat leikepöydälle">
+                  <TouchableOpacity
+                    onPress={() => {
+                      shareToOthers(true);
+                    }}
+                  >
+                    <ThemedText style={styles.currencyContainer}>
+                      {receipt.productTotal.toFixed(2)}€
+                    </ThemedText>
+                  </TouchableOpacity>
+                </Tooltip>
+              </ThemedView>
+            </ThemedView>
+
+            <ThemedText type="subtitle">Tuotteet</ThemedText>
+            <ThemedText type="subtitle" style={styles.subtitle}>
+              Valitse listalta nimet niiden tuotteiden kohdalta,
+            </ThemedText>
+            <ThemedText type="subtitle" style={styles.subtitle}>
+              joita ei jaeta kaikkien kesken
+            </ThemedText>
           </ThemedView>
-        </ThemedView>
-      ))}
-    </>
+        )}
+      />
+    </ThemedView>
   );
 };
 
 export default function ShareView({ receipt, setShareView }: ShareViewProps) {
-  useEffect(() => {
-    console.log(receipt.sharers);
-  });
-  // TODO: Sharing functionalities
   return (
     <ThemedView style={{ flex: 1 }}>
-      <ThemedButton
-        text="Takaisin"
-        color="gray"
-        onPress={() => setShareView(false)}
-      ></ThemedButton>
+      <Button mode="contained" onPress={() => setShareView(false)}>
+        Takaisin
+      </Button>
       <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
         <ThemedText type="title">{receipt.name}</ThemedText>
         <ThemedText type="subtitle">
@@ -107,17 +291,24 @@ export default function ShareView({ receipt, setShareView }: ShareViewProps) {
       </ThemedView>
       <ThemedView
         style={{
-          marginTop: 30,
+          marginTop: 20,
           alignItems: "center",
         }}
       >
-        <ProductShareList
-          products={receipt.products}
-          sharers={receipt.sharers}
-        />
+        <ProductShareList receipt={receipt} />
       </ThemedView>
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  subtitle: { fontSize: 12, color: "#888" },
+  currencyContainer: {
+    borderWidth: 1,
+    backgroundColor: "rgba(148, 255, 157, 0.1)",
+    borderColor: "rgba(148, 255, 157, 0.4)",
+    padding: 5,
+    borderRadius: 5,
+    justifyContent: "flex-end",
+  },
+});

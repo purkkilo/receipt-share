@@ -1,9 +1,13 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
+import {
+  loadSharersFromStorage,
+  saveReceiptToStorage,
+  saveSharersToStorage,
+} from "@/utils/storageApi";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRoute } from "@react-navigation/native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -46,28 +50,17 @@ export default function ReceiptScreen() {
   const carouselRef = useRef<ICarouselInstance>(null);
   const progress = useSharedValue<number>(0);
   const navigation = useNavigation<any>();
+  const [sharers, setSharers] = useState<any[]>([]);
   const route = useRoute();
 
-  // TODO: Save and fetch sharers to/from storage
   const SHARERS_KEY = "@sharers";
-  const defaultSharers = [
-    { name: "J", value: "0" },
-    { name: "L", value: "1" },
-    { name: "K", value: "2" },
-  ];
-  const [sharers, setSharers] = useState<any[]>(defaultSharers);
-
   // Load sharers from storage on mount
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(SHARERS_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length) {
-            setSharers(parsed);
-          }
-        }
+        await loadSharersFromStorage().then((loadedSharers) => {
+          setSharers(loadedSharers);
+        });
       } catch (err) {
         console.error("Failed to load sharers from storage:", err);
       }
@@ -78,7 +71,7 @@ export default function ReceiptScreen() {
   useEffect(() => {
     (async () => {
       try {
-        await AsyncStorage.setItem(SHARERS_KEY, JSON.stringify(sharers));
+        await saveSharersToStorage(sharers);
       } catch (err) {
         console.error("Failed to save sharers to storage:", err);
       }
@@ -102,7 +95,7 @@ export default function ReceiptScreen() {
       setReceiptName(receivedReceipt.name);
       if (receivedReceipt.sharers) {
         setSelectedSharers(
-          receivedReceipt.sharers.map((item: any) => item.value.toString())
+          receivedReceipt.sharers.map((item: any) => item.id.toString())
         );
       }
     }
@@ -118,12 +111,12 @@ export default function ReceiptScreen() {
     selectedSharers,
     setSelectedSharers,
   }: SelectedProps) => {
-    const renderItem = (item: { value: any; name: string }) => {
+    const renderItem = (item: { id: any; name: string }) => {
       return (
-        <ThemedView style={styles.item} key={item.value}>
+        <ThemedView style={styles.item} key={item.id}>
           <ThemedText
             style={
-              selectedSharers.includes(item.value)
+              selectedSharers.includes(item.id)
                 ? styles.selectedTextStyle
                 : styles.placeholderStyle
             }
@@ -143,7 +136,7 @@ export default function ReceiptScreen() {
                   temp.splice(index, 1);
                   // Also remove from selectedSharers if present
                   setSelectedSharers((prevSelected: string[]) =>
-                    prevSelected.filter((value) => value !== item.value)
+                    prevSelected.filter((id) => id !== item.id)
                   );
                   return temp;
                 }
@@ -164,8 +157,8 @@ export default function ReceiptScreen() {
           data={sharers}
           selectedTextStyle={styles.selectedTextStyle}
           inputSearchStyle={styles.inputSearchStyle}
-          labelField="label"
-          valueField="value"
+          labelField="name"
+          valueField="id"
           placeholder="Valitse jakajat"
           value={selectedSharers}
           search
@@ -184,7 +177,7 @@ export default function ReceiptScreen() {
           renderSelectedItem={(item, unSelect) => (
             <TouchableOpacity
               onPress={() => unSelect && unSelect(item)}
-              key={item.value}
+              key={item.id}
             >
               <ThemedView style={styles.selectedStyle}>
                 <ThemedText style={styles.textSelectedStyle}>
@@ -254,15 +247,13 @@ export default function ReceiptScreen() {
     }
   };
 
-  //TODO: Hook the save to a button and load receipts at app start
   const saveReceipt = async () => {
     try {
       let pickedSharers = [];
       if (selectedSharers.length) {
-        pickedSharers = sharers.filter((i) =>
-          selectedSharers.includes(i.value)
-        );
+        pickedSharers = sharers.filter((i) => selectedSharers.includes(i.id));
       }
+
       // Create a receipt object that includes current data, total, images, and a timestamp
       const tempReceipt = {
         name: receiptName,
@@ -273,18 +264,11 @@ export default function ReceiptScreen() {
         timestamp: receipt ? receipt.timestamp : Date.now(),
       };
 
-      // Store each receipt under its own unique key
-      // If receipt already exists, it will be overwritten
       // Key format: @receipt_<timestamp>
-      const receiptKey = `@receipt_${tempReceipt.timestamp}`;
-      // Check if receipt in storage
-      // TODO:
-      await AsyncStorage.setItem(receiptKey, JSON.stringify(tempReceipt)).then(
-        () => {
-          navigation.navigate("index", { receipt: tempReceipt });
-          removeData();
-        }
-      );
+      await saveReceiptToStorage(tempReceipt).then(() => {
+        navigation.navigate("index", { receipt: tempReceipt });
+        removeData();
+      });
     } catch (error) {
       console.error("Error saving receipt:", error);
     }
@@ -575,7 +559,10 @@ export default function ReceiptScreen() {
                 mode="contained"
                 style={{ marginBottom: 20 }}
                 onPress={() =>
-                  setProducts([...products, { name: "", price: null }])
+                  setProducts([
+                    ...products,
+                    { id: products.length, name: "", price: null, sharers: [] },
+                  ])
                 }
               >
                 Lisää tuote
@@ -647,8 +634,8 @@ export default function ReceiptScreen() {
                                 return [
                                   ...prev,
                                   {
+                                    id: sharers.length.toString(),
                                     name: tempSharer,
-                                    value: String(sharers.length),
                                   },
                                 ];
                               }
@@ -656,7 +643,7 @@ export default function ReceiptScreen() {
                             });
                             setSelectedSharers((prev) => [
                               ...prev,
-                              String(sharers.length),
+                              sharers.length.toString(),
                             ]);
                             setSharerName("");
                             tempSharer = "";
