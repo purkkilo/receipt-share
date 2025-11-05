@@ -33,7 +33,7 @@ import Carousel, {
   Pagination,
 } from "react-native-reanimated-carousel";
 import { SafeAreaView } from "react-native-safe-area-context";
-const width = Dimensions.get("window").width - 110;
+const width = Dimensions.get("window").width - 80;
 
 // This is the default configuration
 configureReanimatedLogger({
@@ -99,9 +99,7 @@ export default function ReceiptScreen() {
       setImages(receivedReceipt.images);
       setReceiptName(receivedReceipt.name);
       if (receivedReceipt.sharers) {
-        setSelectedSharers(
-          receivedReceipt.sharers.map((item: any) => item.id.toString())
-        );
+        setSelectedSharers(receivedReceipt.sharers);
       }
     }
   }, [route.params]);
@@ -455,7 +453,7 @@ export default function ReceiptScreen() {
         {products.length ? (
           <ThemedView
             style={{
-              marginTop: 30,
+              marginTop: 50,
               paddingHorizontal: 20,
               flexDirection: "row",
               justifyContent: "space-between",
@@ -562,6 +560,8 @@ export default function ReceiptScreen() {
                         sharers: [],
                       },
                     ]);
+                    let add = productPrice ? productPrice : 0;
+                    setProductTotal((prev: number) => prev + add);
                     // reset controlled inputs
                     setProductName("");
                     setProductPrice(0);

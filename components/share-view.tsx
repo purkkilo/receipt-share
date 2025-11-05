@@ -86,87 +86,99 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
     });
   };
 
-  const renderItem: ListRenderItem<Product> = ({ item: product }) => (
-    <ThemedView
-      style={{
-        gap: 5,
-        borderColor: "#555",
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 10,
-        marginBottom: 10,
-      }}
-    >
+  // First, memoize the renderItem function at the top level of your component
+  const renderItem = useCallback<ListRenderItem<Product>>(
+    ({ item: product }) => (
       <ThemedView
         style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 5,
+          gap: 5,
+          borderColor: "#555",
+          borderWidth: 1,
+          borderRadius: 8,
+          padding: 10,
+          marginBottom: 10,
         }}
       >
-        <ThemedText
-          type="default"
+        <ThemedView
           style={{
-            borderWidth: 1,
-            borderColor: "rgba(162, 184, 241, 0.4)",
-            backgroundColor: "rgba(162, 184, 241, 0.2)",
-            padding: 5,
-            borderRadius: 5,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 5,
           }}
         >
-          {product.name}
-        </ThemedText>
-        <ThemedText
-          type="default"
-          style={{
-            borderWidth: 1,
-            backgroundColor: "rgba(148, 255, 157, 0.1)",
-            borderColor: "rgba(148, 255, 157, 0.4)",
-            padding: 5,
-            borderRadius: 5,
-            justifyContent: "flex-end",
-          }}
-        >
-          {product.price}€
-        </ThemedText>
-      </ThemedView>
-
-      <ThemedView
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 10,
-          alignSelf: "center",
-        }}
-      >
-        {receipt.sharers.map((sharer: any, idx: number) => (
-          <ThemedView
-            key={idx}
+          <ThemedText
+            type="default"
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              borderColor: "#888",
               borderWidth: 1,
-              borderRadius: 8,
-              paddingVertical: 2,
-              paddingHorizontal: 5,
+              borderColor: "rgba(162, 184, 241, 0.4)",
+              backgroundColor: "rgba(162, 184, 241, 0.2)",
+              padding: 5,
+              borderRadius: 5,
             }}
           >
-            <ThemedText type="default" style={{ marginRight: 8 }}>
-              {sharer.name}
-            </ThemedText>
-            <Checkbox
-              status={
-                product.sharers.includes(sharer.name) ? "checked" : "unchecked"
-              }
-              onPress={() => handleSharerSelect(product.id, sharer.name)}
-            ></Checkbox>
-          </ThemedView>
-        ))}
+            {product.name}
+          </ThemedText>
+          <ThemedText
+            type="default"
+            style={{
+              borderWidth: 1,
+              backgroundColor: "rgba(148, 255, 157, 0.1)",
+              borderColor: "rgba(148, 255, 157, 0.4)",
+              padding: 5,
+              borderRadius: 5,
+              justifyContent: "flex-end",
+            }}
+          >
+            {product.price}€
+          </ThemedText>
+        </ThemedView>
+
+        <ThemedView
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 10,
+            alignSelf: "center",
+          }}
+        >
+          {receipt.sharers.map((sharer: any, idx: number) => (
+            <ThemedView
+              key={idx}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                borderColor: "#888",
+                borderWidth: 1,
+                borderRadius: 8,
+                paddingVertical: 2,
+                paddingHorizontal: 5,
+              }}
+            >
+              <ThemedText type="default" style={{ marginRight: 8 }}>
+                {sharer.name}
+              </ThemedText>
+              <Checkbox
+                status={
+                  product.sharers.includes(sharer.name)
+                    ? "checked"
+                    : "unchecked"
+                }
+                onPress={() => handleSharerSelect(product.id, sharer.name)}
+              ></Checkbox>
+            </ThemedView>
+          ))}
+        </ThemedView>
       </ThemedView>
-    </ThemedView>
+    ),
+    []
+  ); // Empty dependency array since it doesn't depend on any props
+
+  // Memoize the keyExtractor
+  const keyExtractor = useCallback(
+    (item: Product) => item.id?.toString() || item.name,
+    []
   );
 
   const listHeader = useCallback(() => {
@@ -262,21 +274,10 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
       <FlatList
         style={{ maxHeight: 450 }}
         data={productSharings}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={keyExtractor}
         renderItem={renderItem}
-        getItemLayout={(_, index) => ({
-          length: 60,
-          offset: 60 * index,
-          index,
-        })}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={6}
-        initialNumToRender={6}
-        windowSize={12}
         ListHeaderComponent={listHeader}
-        ListFooterComponent={() => (
-          <ThemedView style={{ marginTop: 50, padding: 40 }}></ThemedView>
-        )}
+        disableVirtualization
       />
     </ThemedView>
   );
