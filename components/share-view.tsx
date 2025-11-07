@@ -10,11 +10,11 @@ import { ThemedView } from "@/components/themed-view";
 import { saveReceiptToStorage } from "@/utils/storageApi";
 import { Product, Receipt, calculateShares } from "@/utils/util";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Checkbox, Divider, Tooltip } from "react-native-paper";
+import { Button, Checkbox, Divider, Icon, Tooltip } from "react-native-paper";
 import { ThemedText } from "./themed-text";
 
 interface ShareViewProps {
-  receipt: any;
+  receipt: Receipt;
   setShareView: (isOpen: boolean) => void;
 }
 
@@ -43,8 +43,6 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
     setSharerTotals(sharerTotals);
   }, [productSharings]);
 
-  // FIXME: After adding new items, checking the checboxes
-  // Checks more than one box at a time incorrectly
   const handleSharerSelect = async (productId: number, sharerName: string) => {
     let updatedProducts: Product[] = [];
     setProductSharings((prevProducts: Product[]) => {
@@ -72,15 +70,18 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
       .catch((err) => console.error("Failed to save updated receipt:", err));
   };
   const shareToOthers = async (copyAll: boolean, sharerName?: string) => {
-    let clipboardText = "";
+    let clipboardText = `${receipt.name}\n`;
     if (copyAll) {
-      clipboardText = "Jaetut kulut:\n";
       Object.keys(sharerTotals).forEach((name) => {
         clipboardText += `${name}: ${sharerTotals[name].toFixed(2)}€\n`;
       });
     } else if (sharerName) {
-      clipboardText = `${sharerName}: ${sharerTotals[sharerName].toFixed(2)}€`;
+      clipboardText += `${sharerName}: ${sharerTotals[sharerName].toFixed(
+        2
+      )}€\n`;
     }
+
+    clipboardText += `Yhteensä: ${receipt.productTotal.toFixed(2)}€`;
     await Share.share({
       message: clipboardText,
     });
@@ -175,7 +176,7 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
     []
   ); // Empty dependency array since it doesn't depend on any props
 
-  // Memoize the keyExtractor
+  // Memorize the keyExtractor
   const keyExtractor = useCallback(
     (item: Product) => item.id?.toString() || item.name,
     []
@@ -219,8 +220,14 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
                   (Omat: {individualTotals[sharerName]?.toFixed(2) || "0.00"}
                   €)
                 </ThemedText>
-                <Tooltip title="Kopioi summa">
+                <Tooltip title="Jaa summa">
                   <TouchableOpacity
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
                     onPress={() => {
                       shareToOthers(false, sharerName);
                     }}
@@ -228,6 +235,11 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
                     <ThemedText type="default" style={styles.currencyContainer}>
                       {sharerTotals[sharerName].toFixed(2)}€
                     </ThemedText>
+                    <Icon
+                      source={"share-variant"}
+                      color="white"
+                      size={14}
+                    ></Icon>
                   </TouchableOpacity>
                 </Tooltip>
               </ThemedView>
@@ -244,8 +256,14 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
             }}
           >
             <ThemedText>Yhteensä</ThemedText>
-            <Tooltip title="Kopio summat leikepöydälle">
+            <Tooltip title="Jaa kuitin summat">
               <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 3,
+                }}
                 onPress={() => {
                   shareToOthers(true);
                 }}
@@ -253,6 +271,7 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
                 <ThemedText style={styles.currencyContainer}>
                   {receipt.productTotal.toFixed(2)}€
                 </ThemedText>
+                <Icon source={"share-variant"} color="white" size={14}></Icon>
               </TouchableOpacity>
             </Tooltip>
           </ThemedView>
@@ -286,7 +305,12 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
 export default function ShareView({ receipt, setShareView }: ShareViewProps) {
   return (
     <ThemedView style={{ flex: 1 }}>
-      <Button mode="contained" onPress={() => setShareView(false)}>
+      <Button
+        style={{ width: "80%", alignSelf: "center" }}
+        icon={"arrow-left"}
+        mode="contained"
+        onPress={() => setShareView(false)}
+      >
         Takaisin
       </Button>
       <ThemedView style={{ alignItems: "center", marginTop: 30 }}>

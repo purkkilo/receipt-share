@@ -50,7 +50,7 @@ export default function HomeScreen() {
     setReceipt(receipt);
     setShareView(true);
   }
-
+  // TODO: Clean, add tests
   return (
     <ThemedView style={{ flex: 1 }}>
       <ThemedView

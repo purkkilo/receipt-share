@@ -8,7 +8,7 @@ export interface Product {
 export interface Receipt {
   id: number;
   timestamp: number;
-  title: string;
+  name: string;
   products: Product[];
   sharers: { name: string }[];
   productTotal: number;

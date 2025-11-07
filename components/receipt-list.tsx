@@ -1,13 +1,12 @@
-import { StyleSheet } from "react-native";
-
 import { ThemedView } from "@/components/themed-view";
-import { calculateShares } from "@/utils/util";
-import { useState } from "react";
+import { calculateShares, Receipt } from "@/utils/util";
+import { useCallback, useState } from "react";
+import { FlatList, StyleSheet } from "react-native";
 import { Button, Chip, MD3Colors, Modal, Portal } from "react-native-paper";
 import { ThemedText } from "./themed-text";
 
 interface ReceiptListProps {
-  receipts: any[];
+  receipts: Receipt[];
   navigation: any;
   chooseReceipt: (receipt: any) => void;
   deleteReceipt: (receipt: any, index: number) => void;
@@ -23,6 +22,114 @@ export default function ReceiptList({
   const showModal = () => setShowDeleteMessage(true);
   const hideModal = () => setShowDeleteMessage(false);
   const [toDelete, setToDelete] = useState<any>(null);
+
+  const renderItem = useCallback(
+    ({ item: receipt, index }: { item: Receipt; index: number }) => (
+      <ThemedView
+        key={index}
+        style={{
+          borderWidth: 1,
+          borderColor: "#ccc",
+          borderRadius: 8,
+          padding: 5,
+          marginHorizontal: 10,
+          marginVertical: 5,
+        }}
+      >
+        <ThemedText
+          style={{ fontSize: 14, color: "#666", alignSelf: "center" }}
+        >
+          {new Date(receipt.timestamp).toLocaleString()}
+        </ThemedText>
+        <ThemedView
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            padding: 5,
+            gap: 20,
+          }}
+        >
+          <ThemedText
+            style={{
+              fontSize: 16,
+              fontWeight: "bold",
+              alignSelf: "center",
+            }}
+          >
+            {receipt.name}
+          </ThemedText>
+
+          <ThemedText style={styles.currencyContainer}>
+            {receipt.productTotal.toFixed(2)}€
+          </ThemedText>
+        </ThemedView>
+
+        <ThemedView
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          {receipt.sharers?.map((sharer: any, sIndex: number) => {
+            return (
+              <Chip icon={"account"} key={sIndex} mode="outlined">
+                {sharer.name}{" "}
+                {calculateShares(receipt, receipt.products).sharerTotals[
+                  sharer.name
+                ]?.toFixed(2)}
+                €
+              </Chip>
+            );
+          })}
+        </ThemedView>
+        <ThemedView style={styles.buttonRow}>
+          <Button
+            compact
+            textColor={MD3Colors.error50}
+            icon="delete"
+            mode="text"
+            onPress={() => {
+              setToDelete({ receipt, index });
+              showModal();
+            }}
+          >
+            Poista
+          </Button>
+          <Button
+            compact
+            textColor={"#a0a82aff"}
+            icon="pencil"
+            mode="text"
+            onPress={() => {
+              navigation.navigate("receipt", { receipt: receipt });
+            }}
+          >
+            Muokkaa
+          </Button>
+          <Button
+            compact
+            icon="share"
+            mode="text"
+            onPress={() => {
+              chooseReceipt(receipt);
+            }}
+          >
+            Jaa kulut
+          </Button>
+        </ThemedView>
+      </ThemedView>
+    ),
+    [calculateShares, showModal, chooseReceipt]
+  );
+
+  // Memorize the keyExtractor
+  const keyExtractor = useCallback((item: Receipt, index: number) => {
+    // ensure a string is always returned
+    if (item.id !== undefined && item.id !== null) return item.id.toString();
+    return String(item.timestamp ?? index);
+  }, []);
 
   return (
     <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
@@ -83,129 +190,52 @@ export default function ReceiptList({
           </ThemedView>
         </Modal>
       </Portal>
-      <ThemedText
-        style={{ fontSize: 16, fontWeight: "bold", marginBottom: 10 }}
-      >
-        Tallennetut kuitit
-      </ThemedText>
-      {receipts.length === 0 ? (
-        <ThemedView
-          style={{
-            alignItems: "center",
-          }}
-        >
-          <ThemedText style={{ fontSize: 14, color: "#888" }}>
-            Ei tallennettuja kuitteja
-          </ThemedText>
-          <Button
-            mode="contained"
-            icon="receipt-text-arrow-right"
-            style={{ marginTop: 20 }}
-            onPress={() => {
-              navigation.navigate("receipt");
-            }}
-          >
-            Siirry luomaan kuitti
-          </Button>
-        </ThemedView>
-      ) : (
-        receipts.map((receipt: any, index: number) => (
-          <ThemedView
-            key={index}
+      <FlatList
+        data={receipts}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        getItemLayout={(_: any, index: number) => ({
+          length: 60,
+          offset: 60 * index,
+          index,
+        })}
+        maxToRenderPerBatch={12}
+        initialNumToRender={12}
+        windowSize={12}
+        ListHeaderComponent={() => (
+          <ThemedText
             style={{
-              borderWidth: 1,
-              borderColor: "#ccc",
-              borderRadius: 8,
-              padding: 5,
-              margin: 5,
+              fontSize: 18,
+              fontWeight: "bold",
+              marginBottom: 10,
+              alignSelf: "center",
             }}
           >
-            <ThemedText
-              style={{ fontSize: 14, color: "#666", alignSelf: "center" }}
-            >
-              {new Date(receipt.timestamp).toLocaleString()}
+            Tallennetut kuitit
+          </ThemedText>
+        )}
+        ListEmptyComponent={() => (
+          <ThemedView
+            style={{
+              alignItems: "center",
+            }}
+          >
+            <ThemedText style={{ fontSize: 14, color: "#888" }}>
+              Ei tallennettuja kuitteja
             </ThemedText>
-            <ThemedView
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                padding: 5,
-                gap: 20,
+            <Button
+              mode="contained"
+              icon="receipt-text-arrow-right"
+              style={{ marginTop: 20 }}
+              onPress={() => {
+                navigation.navigate("receipt");
               }}
             >
-              <ThemedText
-                style={{
-                  fontSize: 16,
-                  fontWeight: "bold",
-                  alignSelf: "center",
-                }}
-              >
-                {receipt.name}
-              </ThemedText>
-
-              <ThemedText style={styles.currencyContainer}>
-                {receipt.productTotal.toFixed(2)}€
-              </ThemedText>
-            </ThemedView>
-
-            <ThemedView
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              {receipt.sharers?.map((sharer: any, sIndex: number) => {
-                return (
-                  <Chip icon={"account"} key={sIndex} mode="outlined">
-                    {sharer.name}{" "}
-                    {calculateShares(receipt, receipt.products).sharerTotals[
-                      sharer.name
-                    ]?.toFixed(2)}
-                    €
-                  </Chip>
-                );
-              })}
-            </ThemedView>
-            <ThemedView style={styles.buttonRow}>
-              <Button
-                compact
-                textColor={MD3Colors.error50}
-                icon="delete"
-                mode="text"
-                onPress={() => {
-                  setToDelete({ receipt, index });
-                  showModal();
-                }}
-              >
-                Poista
-              </Button>
-              <Button
-                compact
-                textColor={"#a0a82aff"}
-                icon="pencil"
-                mode="text"
-                onPress={() => {
-                  navigation.navigate("receipt", { receipt: receipt });
-                }}
-              >
-                Muokkaa
-              </Button>
-              <Button
-                compact
-                icon="share"
-                mode="text"
-                onPress={() => {
-                  chooseReceipt(receipt);
-                }}
-              >
-                Jaa kulut
-              </Button>
-            </ThemedView>
+              Siirry luomaan kuitti
+            </Button>
           </ThemedView>
-        ))
-      )}
+        )}
+      ></FlatList>
     </ThemedView>
   );
 }
