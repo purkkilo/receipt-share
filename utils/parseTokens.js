@@ -221,7 +221,7 @@ export function extractProducts(tokens) {
     "YHTEENSÄ",
     "NORM.",
     "KAMPANJA",
-    "€/KPL",
+    "RIVIALENNUS",
   ];
 
   function isBlacklistedLine(s) {
@@ -340,7 +340,6 @@ export function extractProducts(tokens) {
 
     // final cleanup: remove stray punctuation, collapse multiple spaces
     name = (name || "").replace(/\s{2,}/g, " ").trim();
-
     // create confidence: basic heuristic
     let confidence = 1.0;
     // penalize if name empty

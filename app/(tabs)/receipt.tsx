@@ -238,6 +238,7 @@ export default function ReceiptScreen() {
       // Remove false price detections (4, 19 -> 4,19)
       e.text = e.text.replace(", ", ",").trim();
     });
+
     const products = extractProducts(imageResult);
 
     if (products.length) {
@@ -614,6 +615,7 @@ export default function ReceiptScreen() {
           style={{
             width: "100%",
             minHeight: addProduct && showImage ? 165 : 210,
+            marginBottom: 0,
           }}
           data={products}
           keyExtractor={(_, index) => index.toString()}
