@@ -124,7 +124,6 @@ export default function ReceiptList({
     [calculateShares, showModal, chooseReceipt]
   );
 
-  // Memorize the keyExtractor
   const keyExtractor = useCallback((item: Receipt, index: number) => {
     // ensure a string is always returned
     if (item.id !== undefined && item.id !== null) return item.id.toString();
@@ -132,7 +131,7 @@ export default function ReceiptList({
   }, []);
 
   return (
-    <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
+    <ThemedView style={{ alignItems: "center", marginBottom: 90 }}>
       <Portal>
         <Modal
           visible={showDeleteMessage}

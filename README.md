@@ -1,50 +1,97 @@
-# Welcome to your Expo app 👋
+# Receipt Share
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+> **A React Native app for sharing expenses based on receipts and participants**
 
-## Get started
+[![React Native](https://img.shields.io/badge/React%20Native-0.79.5-blue.svg)](https://reactnative.dev/)
+[![Expo SDK](https://img.shields.io/badge/Expo%20SDK-53.0.18-000020.svg)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue.svg)](https://www.typescriptlang.org/)
 
-1. Install dependencies
+With this app you can read price information from receipts, modify them manually, add your own expenses, and share these expenses product by product.
 
-   ```bash
-   npm install
-   ```
+## 📱 Features
 
-2. Start the app
+- **Read product names and prices from receipt to digital form**
+- **Receipt history** - View yesterday previous receipts
+- **Share expenses** - Share the receipt evenly, or select product by product which belongs to whom
+- **Share expenses information to other apps**
 
-   ```bash
-   npx expo start
-   ```
+## 🚀 Quick Start
 
-In the output, you'll find options to open the app in a
+### Prerequisites
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Node.js (v18 or later)
+- npm or yarn
+- Expo CLI (optional, for additional features)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Installation
 
 ```bash
-npm run reset-project
+# Clone the repository
+git clone https://github.com/purkkilo/receipt-share.git
+
+cd receipt-share
+
+# Install dependencies
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Running the App
 
-## Learn more
+```bash
+# Start the development server
+npm start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+In the output, you'll find options to open the app in:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- 🔧 **[Development build](https://docs.expo.dev/develop/development-builds/introduction/)** - Full native features
+- 🤖 **[Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)** - Android development
+- 📱 **[iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)** - iOS development
+- 📦 **[Expo Go](https://expo.dev/go)** - Quick preview (limited features)
 
-## Join the community
+### Platform-Specific Commands
 
-Join our community of developers creating universal apps.
+```bash
+# Run on specific platforms
+npm run android    # Android
+npm run ios        # iOS
+npm run web        # Web browser
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## TODO
+
+- Testing
+- Export/import receipts OR cloud storage
+- ?
+
+## 🔧 Development
+
+### Project Structure
+
+```
+electricity-widget/
+├── app/                   # File-based routing (Expo Router)
+│   ├── (tabs)/            # Tab navigation screens
+│   └── _layout.tsx        # Root layout
+├── components/            # Reusable components
+├── utils/                 # Utility functions
+│   ├── debugTokens.js     # For testing purposes, fine tuning the OCR results
+│   ├── parseTokens.ts     # Parse the OCR results to more usefull form
+│   └── storageApi.ts      # AsyncStorage handling
+│   └── util.ts            # Utility functions used in many components
+├── constants/             # App constants
+└── scripts/               # Build scripts
+```
+
+### Key Technologies
+
+- **[Expo Router](https://docs.expo.dev/router/introduction/)** - File-based navigation
+- **[react-native-mlkit-ocr](https://www.npmjs.com/package/react-native-mlkit-ocr)** - OCR
+- **[AsyncStorage](https://react-native-async-storage.github.io/async-storage/)** - Local data caching
+- **[React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/)** - Smooth animations
+
+## 🙏 Acknowledgments
+
+- **Data Source**: [sahkonhintatanaan.fi](https://www.sahkonhintatanaan.fi)
+- **Framework**: [Expo](https://expo.dev) and [React Native](https://reactnative.dev)
+- **AI Tools**: [Warp](https://warp.dev)
