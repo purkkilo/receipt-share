@@ -193,6 +193,7 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
       >
         <ThemedView
           style={{
+            marginTop: 10,
             marginBottom: 10,
             borderWidth: 1,
             borderColor: "#ccc",
@@ -291,7 +292,7 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
   return (
     <ThemedView style={{ alignItems: "center" }}>
       <FlatList
-        style={{ maxHeight: 450 }}
+        style={{ maxHeight: 450, width: "95%" }}
         data={productSharings}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
@@ -319,14 +320,8 @@ export default function ShareView({ receipt, setShareView }: ShareViewProps) {
           {new Date(receipt.timestamp).toLocaleString()}
         </ThemedText>
       </ThemedView>
-      <ThemedView
-        style={{
-          marginTop: 20,
-          alignItems: "center",
-        }}
-      >
-        <ProductShareList receipt={receipt} />
-      </ThemedView>
+
+      <ProductShareList receipt={receipt} />
     </ThemedView>
   );
 }

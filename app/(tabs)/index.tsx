@@ -8,21 +8,24 @@ import {
   deleteReceiptFromStorage,
   getAllReceiptsFromStorage,
 } from "@/utils/storageApi";
+import { Receipt } from "@/utils/util";
 import { useRoute } from "@react-navigation/native";
 import { useNavigation } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Searchbar } from "react-native-paper";
 
 export default function HomeScreen() {
-  const [receipts, setReceipts] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const navigation = useNavigation<any>();
   const route = useRoute();
   const [shareView, setShareView] = useState<boolean>(false);
-  const [receipt, setReceipt] = useState<any>();
+  const [receipt, setReceipt] = useState<Receipt>();
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const loadReceipts = async () => {
     try {
       const receipts = await getAllReceiptsFromStorage();
-      setReceipts(receipts);
+      setReceipts(receipts.sort((a, b) => b.timestamp - a.timestamp));
     } catch (error) {
       console.error("Error loading receipts:", error);
     }
@@ -46,6 +49,25 @@ export default function HomeScreen() {
     loadReceipts();
   }, [route.params]);
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const filteredReceipts = useMemo(() => {
+    if (!normalizedQuery) return receipts;
+
+    return receipts.filter((r) => {
+      const haystack = [
+        r.name,
+        new Date(r.timestamp).toLocaleString(),
+        ...(r.sharers?.map((s: any) => s?.name) ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedQuery);
+    });
+  }, [receipts, normalizedQuery]);
+
   function chooseReceipt(receipt: any): void {
     setReceipt(receipt);
     setShareView(true);
@@ -58,6 +80,7 @@ export default function HomeScreen() {
           alignItems: "center",
           marginTop: 20,
           marginBottom: 10,
+          padding: 10,
         }}
       >
         <ThemedText style={{ fontSize: 20, fontWeight: "bold" }}>
@@ -66,12 +89,17 @@ export default function HomeScreen() {
         <ThemedText style={{ fontSize: 12, color: "#888", marginTop: 5 }}>
           Valitse kuitti ja jaa kulut ystäviesi kesken
         </ThemedText>
+        <Searchbar
+          placeholder="Hae"
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+        />
       </ThemedView>
-      {shareView ? (
+      {shareView && receipt ? (
         <ShareView receipt={receipt} setShareView={setShareView}></ShareView>
       ) : (
         <ReceiptList
-          receipts={receipts}
+          receipts={filteredReceipts}
           navigation={navigation}
           deleteReceipt={deleteReceipt}
           chooseReceipt={chooseReceipt}

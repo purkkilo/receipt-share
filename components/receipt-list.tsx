@@ -22,6 +22,7 @@ export default function ReceiptList({
   const showModal = () => setShowDeleteMessage(true);
   const hideModal = () => setShowDeleteMessage(false);
   const [toDelete, setToDelete] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const renderItem = useCallback(
     ({ item: receipt, index }: { item: Receipt; index: number }) => (

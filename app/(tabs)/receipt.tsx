@@ -1,4 +1,5 @@
 import FloatPaperInput from "@/components/float-input";
+import { MultiSharerSelect } from "@/components/multi-select";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { extractProducts } from "@/utils/parseTokens";
@@ -7,7 +8,6 @@ import {
   saveReceiptToStorage,
   saveSharersToStorage,
 } from "@/utils/storageApi";
-import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRoute } from "@react-navigation/native";
 import { Image } from "expo-image";
@@ -20,7 +20,6 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from "react-native";
-import { MultiSelect } from "react-native-element-dropdown";
 import MlkitOcr, { MKLBlock } from "react-native-mlkit-ocr";
 import { Button, IconButton, MD3Colors, TextInput } from "react-native-paper";
 import {
@@ -87,8 +86,6 @@ export default function ReceiptScreen() {
 
   let tempName: string = "";
   let tempSharer: string = "";
-  let tempProductName: string = "";
-  let tempProductPrice: string = "";
 
   useEffect(() => {
     if (route.params) {
@@ -99,101 +96,13 @@ export default function ReceiptScreen() {
       setImages(receivedReceipt.images);
       setReceiptName(receivedReceipt.name);
       if (receivedReceipt.sharers) {
-        setSelectedSharers(receivedReceipt.sharers);
+        setSelectedSharers(receivedReceipt.sharers.map((s: any) => s.id));
+        // or without String(...) if your sharer ids are numbers everywhere
+      } else {
+        setSelectedSharers([]);
       }
     }
   }, [route.params]);
-
-  interface SelectedProps {
-    selectedSharers: string[];
-    setSelectedSharers: React.Dispatch<React.SetStateAction<string[]>>;
-  }
-
-  //FIXME: Fix the component closing every select?
-  const MultiSelectComponent = ({
-    selectedSharers,
-    setSelectedSharers,
-  }: SelectedProps) => {
-    const renderItem = (item: { id: any; name: string }) => {
-      return (
-        <ThemedView style={styles.item} key={item.id}>
-          <ThemedText
-            style={
-              selectedSharers.includes(item.id)
-                ? styles.selectedTextStyle
-                : styles.placeholderStyle
-            }
-          >
-            {item.name}
-          </ThemedText>
-          <AntDesign
-            style={styles.icon}
-            color="red"
-            name="delete"
-            size={20}
-            onPress={() => {
-              setSharers((prev: any[]) => {
-                let temp = [...prev];
-                const index = temp.findIndex((i) => i.name === item.name);
-                if (index > -1) {
-                  temp.splice(index, 1);
-                  // Also remove from selectedSharers if present
-                  setSelectedSharers((prevSelected: string[]) =>
-                    prevSelected.filter((id) => id !== item.id)
-                  );
-                  return temp;
-                }
-                // Ensure we always return an array (no-op if not found)
-                return prev;
-              });
-            }}
-          />
-        </ThemedView>
-      );
-    };
-
-    return (
-      <ThemedView style={[styles.container, { marginBottom: 20 }]}>
-        <MultiSelect
-          style={styles.dropdown}
-          iconStyle={styles.iconStyle}
-          data={sharers}
-          selectedTextStyle={styles.selectedTextStyle}
-          inputSearchStyle={styles.inputSearchStyle}
-          labelField="name"
-          valueField="id"
-          placeholder="Valitse jakajat"
-          value={selectedSharers}
-          search
-          activeColor="green"
-          searchPlaceholder="Etsi..."
-          onChange={(item) => {
-            setSelectedSharers(item);
-          }}
-          onConfirmSelectItem={(item) => {
-            setSelectedSharers(item);
-          }}
-          renderLeftIcon={() => (
-            <AntDesign style={styles.icon} name="check-circle" size={20} />
-          )}
-          renderItem={renderItem}
-          renderSelectedItem={(item, unSelect) => (
-            <TouchableOpacity
-              onPress={() => unSelect && unSelect(item)}
-              key={item.id}
-            >
-              <ThemedView style={styles.selectedStyle}>
-                <ThemedText style={styles.textSelectedStyle}>
-                  {item.name}
-                </ThemedText>
-                <AntDesign color="red" name="delete" size={17} />
-              </ThemedView>
-            </TouchableOpacity>
-          )}
-        />
-      </ThemedView>
-    );
-  };
 
   const onPressPagination = (index: number) => {
     carouselRef.current?.scrollTo({
@@ -213,19 +122,25 @@ export default function ReceiptScreen() {
       setImages([]);
     }
     let image = "";
+    let canceled = false;
     await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"],
-      //allowsEditing: true,
+      mediaTypes: ["images"],
+      allowsEditing: true,
       //allowsMultipleSelection: true,
       quality: 1,
     })
       .then((result) => {
+        canceled = result.canceled;
         image = result?.assets?.[0]?.uri || "";
-        readProducts(image || "");
+        if (image !== "" || canceled) {
+          readProducts(image);
+        }
       })
       .finally(() => {
-        setImages((prev) => [...prev, image]);
-        carouselRef.current?.next();
+        if (image !== "" || canceled) {
+          setImages((prev) => [...prev, image]);
+          carouselRef.current?.next();
+        }
       });
   };
 
@@ -257,10 +172,9 @@ export default function ReceiptScreen() {
 
   const saveReceipt = async () => {
     try {
-      let pickedSharers = [];
-      if (selectedSharers.length) {
-        pickedSharers = sharers.filter((i) => selectedSharers.includes(i.id));
-      }
+      const pickedSharers = sharers.filter((i) =>
+        selectedSharers.includes(i.id)
+      );
 
       // Create a receipt object that includes current data, total, images, and a timestamp
       const tempReceipt = {
@@ -282,34 +196,32 @@ export default function ReceiptScreen() {
   };
 
   // Handle text input changes for both name and price fields
-  const onChangeText = (index: number, field: string) => (text: string) => {
+  const onChangeText = (
+    index: number,
+    field: string,
+    text: string | number | null
+  ) => {
     const newData = [...products];
     try {
       if (!newData[index]) {
         console.warn(`Data at index ${index} is undefined`);
         return;
       }
+
+      // Recalculate total price
       if (field === "price") {
-        if (text.slice(-1) === ",") {
-          // If input ends with a comma, store the raw string for now.
-          newData[index][field] = text;
+        let n = text;
+        // Ensure we parse only when text is a string; if it's already a number, use it directly.
+        if (text === "" || text === null || text === undefined) {
+          n = 0;
+        } else if (typeof text === "number") {
+          n = text;
         } else {
-          // Normalize input: remove thousands separators and unify decimal separator
-          const normalized = text
-            .replace(/\./g, "") // Remove all periods (assume as thousands separator)
-            .replace(/,/g, "."); // Replace comma with period (as decimal separator)
-          const parsed = parseFloat(normalized);
-          newData[index][field] = isNaN(parsed) ? null : parsed;
-          // Recalculate total price
-          setProductTotal(
-            newData.reduce(
-              (sum, p) => sum + (typeof p.price === "number" ? p.price : 0),
-              0
-            )
-          );
+          n = parseFloat(text);
         }
+        newData[index][field] = n;
+        setProductTotal(newData.reduce((sum, p) => sum + p.price, 0));
       } else {
-        // Just set the text for name field
         newData[index][field] = text;
       }
       setProducts(newData);
@@ -352,23 +264,19 @@ export default function ReceiptScreen() {
     }) => (
       <ThemedView style={styles.stepContainer}>
         <TextInput
+          label={"Nimi"}
           style={styles.input}
           mode="outlined"
           value={item.name}
-          onChangeText={onChangeText(index, "name")}
+          onChangeText={(text) => onChangeText(index, "name", text)}
         ></TextInput>
-        <TextInput
+        <FloatPaperInput
+          value={item.price ? item.price : 0}
+          onChange={(number) => onChangeText(index, "price", number)}
+          label="Hinta"
+          allowNegative={true}
           style={[styles.input, styles.priceInput]}
-          mode="outlined"
-          keyboardType="decimal-pad"
-          inputMode="decimal"
-          value={item.price ? item.price.toString().replace(",", ".") : ""}
-          onChangeText={(text) => {
-            // Allow only numbers, commas, and periods
-            const filtered = text.replace(/[^0-9,]/g, "");
-            onChangeText(index, "price")(filtered);
-          }}
-        ></TextInput>
+        ></FloatPaperInput>
         <TouchableOpacity
           onPress={() => removeAtIndex(index)}
           style={{ padding: 10 }}
@@ -422,6 +330,12 @@ export default function ReceiptScreen() {
     <SafeAreaView
       style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
     >
+      {!products.length ? (
+        <ThemedText type="title" style={{ marginBottom: 40, marginTop: 20 }}>
+          Receipt share
+        </ThemedText>
+      ) : null}
+
       <ThemedView style={styles.titleContainer}>
         {showImage && images.length ? (
           <ThemedView>
@@ -450,11 +364,81 @@ export default function ReceiptScreen() {
           </ThemedView>
         ) : null}
       </ThemedView>
+      <ThemedView style={{ alignItems: "center" }}>
+        {addProduct ? (
+          <>
+            <ThemedView
+              style={{
+                flexDirection: "row",
+                paddingHorizontal: 30,
+                paddingVertical: 10,
+                gap: 10,
+                alignItems: "center",
+                justifyContent: "center",
+                width: 220,
+                height: 60,
+              }}
+            >
+              <TextInput
+                style={styles.input}
+                mode="outlined"
+                label="Tuote"
+                value={productName}
+                onChangeText={(text) => setProductName(text)}
+              />
+              <FloatPaperInput
+                value={productPrice}
+                onChange={(n) => setProductPrice(n)}
+                label="Hinta"
+                allowNegative={true}
+                style={styles.input}
+              />
+              <IconButton
+                icon="cart-plus"
+                mode="outlined"
+                onPress={() => {
+                  setProducts([
+                    ...products,
+                    {
+                      id:
+                        products.length +
+                        Math.random().toString(36).substring(2, 9),
+                      name: productName,
+                      price: productPrice,
+                      sharers: [],
+                    },
+                  ]);
+                  let add = productPrice ? productPrice : 0;
+                  setProductTotal((prev: number) => prev + add);
+                  // reset controlled inputs
+                  setProductName("");
+                  setProductPrice(0);
+                }}
+              />
+              <Button
+                mode="contained"
+                onPress={() => setAddProduct(!addProduct)}
+              >
+                Piilota
+              </Button>
+            </ThemedView>
+          </>
+        ) : (
+          <Button
+            style={{ marginHorizontal: products.length ? 10 : 40 }}
+            icon="cart-plus"
+            mode="contained"
+            onPress={() => setAddProduct(!addProduct)}
+          >
+            Lisää tuote
+          </Button>
+        )}
+      </ThemedView>
       <ThemedView style={styles.container}>
         {products.length ? (
           <ThemedView
             style={{
-              marginTop: 50,
+              marginTop: 40,
               paddingHorizontal: 20,
               flexDirection: "row",
               justifyContent: "space-between",
@@ -495,122 +479,38 @@ export default function ReceiptScreen() {
             </Button>
           </ThemedView>
         ) : (
-          <ThemedView style={{ marginBottom: 20, alignItems: "center" }}>
-            <ThemedText type="title" style={{ marginBottom: 5 }}>
-              Receipt share
-            </ThemedText>
-            <ThemedText style={[styles.subtitle, { margin: 10 }]}>
-              Valitse kuva kuitista
-            </ThemedText>
+          <ThemedView
+            style={{ marginBottom: 20, marginTop: 10, alignItems: "center" }}
+          >
+            <ThemedText style={styles.subtitle}>Lisää tuotteet itse</ThemedText>
+
             <Button
               icon="image"
               mode="contained"
-              style={{ marginBottom: 20 }}
+              style={{ marginVertical: 10 }}
               onPress={() => {
                 pickImage(true);
               }}
             >
               Valitse
             </Button>
-            <ThemedText style={styles.subtitle}>
-              Tai syötä tuotteet itse alle
+            <ThemedText style={[styles.subtitle]}>
+              Tai valitse kuva kuitista
             </ThemedText>
           </ThemedView>
         )}
-        <ThemedView style={{ alignItems: "center" }}>
-          {addProduct ? (
-            <>
-              <ThemedView
-                style={{
-                  flexDirection: "row",
-                  paddingHorizontal: 30,
-                  paddingVertical: 10,
-                  gap: 10,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 220,
-                  height: 60,
-                }}
-              >
-                <TextInput
-                  style={styles.input}
-                  mode="outlined"
-                  label="Tuote"
-                  value={productName}
-                  onChangeText={(text) => setProductName(text)}
-                />
-                <FloatPaperInput
-                  value={productPrice}
-                  onChange={(n) => setProductPrice(n)}
-                  label="Hinta"
-                  allowNegative={false}
-                  style={styles.input}
-                />
-                <IconButton
-                  icon="cart-plus"
-                  mode="outlined"
-                  onPress={() => {
-                    setProducts([
-                      ...products,
-                      {
-                        id:
-                          products.length +
-                          Math.random().toString(36).substring(2, 9),
-                        name: productName,
-                        price: productPrice,
-                        sharers: [],
-                      },
-                    ]);
-                    let add = productPrice ? productPrice : 0;
-                    setProductTotal((prev: number) => prev + add);
-                    // reset controlled inputs
-                    setProductName("");
-                    setProductPrice(0);
-                  }}
-                />
-                <Button
-                  mode="contained"
-                  onPress={() => setAddProduct(!addProduct)}
-                >
-                  Piilota
-                </Button>
-              </ThemedView>
-            </>
-          ) : (
-            <Button
-              style={{ bottom: -5, marginBottom: 5 }}
-              icon="cart-plus"
-              mode="contained"
-              onPress={() => setAddProduct(!addProduct)}
-            >
-              Lisää tuote
-            </Button>
-          )}
-        </ThemedView>
 
-        <ThemedText style={{ fontSize: 20, fontWeight: "bold", bottom: -5 }}>
-          Kuitti
-        </ThemedText>
-        <ThemedView
+        <ThemedText
           style={{
-            flexDirection: "row",
-            justifyContent: "center",
-            // Center the texts so that they are
-            // aligned in the middle of their columns
-            alignItems: "center",
-            width: "100%",
+            fontSize: 20,
+            fontWeight: "bold",
+            paddingTop: 10,
             paddingBottom: 5,
-            borderBottomWidth: 1,
-            borderBottomColor: "#888",
           }}
         >
-          <ThemedText style={{ fontSize: 18, width: "60%", left: -18 }}>
-            Nimi
-          </ThemedText>
-          <ThemedText style={{ fontSize: 18, width: "20%", left: -18 }}>
-            Hinta
-          </ThemedText>
-        </ThemedView>
+          Kuitti
+        </ThemedText>
+
         <FlatList
           style={{
             width: "100%",
@@ -666,10 +566,11 @@ export default function ReceiptScreen() {
                       Kuitin jakajat
                     </ThemedText>
                     {sharers.length ? (
-                      <MultiSelectComponent
+                      <MultiSharerSelect
+                        sharers={sharers} // [{id, name}, ...]
                         selectedSharers={selectedSharers}
                         setSelectedSharers={setSelectedSharers}
-                      ></MultiSelectComponent>
+                      />
                     ) : null}
                     {addSharer ? (
                       <ThemedView
@@ -791,27 +692,19 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   input: {
-    width: "65%",
+    width: "60%",
     borderRadius: 5,
     borderColor: "#555",
     fontSize: 14,
     height: 40,
   },
   priceInput: {
-    width: "20%",
+    width: "25%",
   },
 
   subtitle: {
     color: "#888",
     fontSize: 12,
-  },
-  dropdown: {
-    width: "60%",
-    borderRadius: 5,
-    borderColor: "#555",
-    padding: 12,
-    borderWidth: 1,
-    backgroundColor: "#adadadff",
   },
   placeholderStyle: {
     fontSize: 16,
