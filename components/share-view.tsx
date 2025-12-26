@@ -282,7 +282,10 @@ const ProductShareList = ({ receipt }: { receipt: Receipt }) => {
         <ThemedText type="subtitle" style={styles.subtitle}>
           Valitse listalta nimet niiden tuotteiden kohdalta,
         </ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>
+        <ThemedText
+          type="subtitle"
+          style={[styles.subtitle, { marginBottom: 10 }]}
+        >
           joita ei jaeta kaikkien kesken
         </ThemedText>
       </ThemedView>
@@ -314,7 +317,7 @@ export default function ShareView({ receipt, setShareView }: ShareViewProps) {
       >
         Takaisin
       </Button>
-      <ThemedView style={{ alignItems: "center", marginTop: 30 }}>
+      <ThemedView style={{ alignItems: "center" }}>
         <ThemedText type="title">{receipt.name}</ThemedText>
         <ThemedText type="subtitle">
           {new Date(receipt.timestamp).toLocaleString()}

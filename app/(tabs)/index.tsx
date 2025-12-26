@@ -89,21 +89,29 @@ export default function HomeScreen() {
         <ThemedText style={{ fontSize: 12, color: "#888", marginTop: 5 }}>
           Valitse kuitti ja jaa kulut ystäviesi kesken
         </ThemedText>
-        <Searchbar
-          placeholder="Hae"
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-        />
       </ThemedView>
       {shareView && receipt ? (
         <ShareView receipt={receipt} setShareView={setShareView}></ShareView>
       ) : (
-        <ReceiptList
-          receipts={filteredReceipts}
-          navigation={navigation}
-          deleteReceipt={deleteReceipt}
-          chooseReceipt={chooseReceipt}
-        ></ReceiptList>
+        <ThemedView
+          style={{
+            flex: 1,
+            paddingHorizontal: 5,
+          }}
+        >
+          <Searchbar
+            style={{ marginBottom: 10 }}
+            placeholder="Hae"
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+          />
+          <ReceiptList
+            receipts={filteredReceipts}
+            navigation={navigation}
+            deleteReceipt={deleteReceipt}
+            chooseReceipt={chooseReceipt}
+          ></ReceiptList>
+        </ThemedView>
       )}
     </ThemedView>
   );
